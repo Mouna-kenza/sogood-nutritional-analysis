@@ -33,7 +33,24 @@ def home():
 @app.route('/search')
 def search():
     query = request.args.get('q', '').lower()
-    results = [p for p in MOCK_PRODUCTS if query in p['name'].lower()]
+    category = request.args.get('category', '')
+    nutri_score = request.args.get('nutri_score', '')
+    
+    # Commencer avec tous les produits
+    results = MOCK_PRODUCTS.copy()
+    
+    # Filtrer par nom/marque si une recherche est tapée
+    if query:
+        results = [p for p in results if query in p['name'].lower() or query in p['brand'].lower()]
+    
+    # Filtrer par catégorie si sélectionnée
+    if category:
+        results = [p for p in results if category in p['category']]
+    
+    # Filtrer par Nutri-Score si sélectionné
+    if nutri_score:
+        results = [p for p in results if p['nutri_score'] == nutri_score.upper()]
+    
     return jsonify(results)
 
 @app.route('/product/<product_id>')
