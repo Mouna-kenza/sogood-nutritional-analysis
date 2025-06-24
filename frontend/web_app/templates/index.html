@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="container text-center">
+        <h1 class="display-4 mb-4">🥗 Bienvenue sur SoGood</h1>
+        <p class="lead">Découvrez la qualité nutritionnelle de vos produits alimentaires préférés</p>
+    </div>
+</div>
+
+<div class="container my-5">
+    <!-- Barre de recherche -->
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg">
+                <div class="card-body p-4">
+                    <h3 class="text-center mb-4">🔍 Rechercher un Produit</h3>
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <input type="text" id="searchInput" class="form-control form-control-lg" 
+                                   placeholder="Tapez le nom d'un produit... (ex: Nutella, Coca-Cola)">
+                        </div>
+                        <div class="col-md-4">
+                            <button onclick="searchProducts()" class="btn btn-success btn-lg w-100">
+                                <i class="fas fa-search"></i> Rechercher
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <select id="categoryFilter" class="form-select">
+                                <option value="">🏷️ Toutes catégories</option>
+                                <option value="Pâtes à tartiner">Pâtes à tartiner</option>
+                                <option value="Eaux">Eaux & Boissons</option>
+                                <option value="Snacks">Snacks & Apéritifs</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <select id="nutriFilter" class="form-select">
+                                <option value="">⭐ Tous Nutri-Scores</option>
+                                <option value="A">A - Excellent</option>
+                                <option value="B">B - Bon</option>
+                                <option value="C">C - Moyen</option>
+                                <option value="D">D - Médiocre</option>
+                                <option value="E">E - Mauvais</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Résultats -->
+    <div id="results" class="row mt-5">
+        <!-- Les produits apparaîtront ici -->
+    </div>
+</div>
+
+<script>
+function searchProducts() {
+    const query = document.getElementById('searchInput').value;
+    const category = document.getElementById('categoryFilter').value;
+    const nutriScore = document.getElementById('nutriFilter').value;
+    
+    const params = new URLSearchParams({
+        q: query,
+        category: category,
+        nutri_score: nutriScore
+    });
+    
+    fetch(`/search?${params}`)
+        .then(response => response.json())
+        .then(products => displayResults(products));
+}
+
+function displayResults(products) {
+    const resultsDiv = document.getElementById('results');
+    
+    if (products.length === 0) {
+        resultsDiv.innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-search fa-2x mb-3"></i>
+                    <h4>Aucun produit trouvé</h4>
+                    <p>Essayez avec des termes différents</p>
+                </div>
+            </div>`;
+        return;
+    }
+    
+    resultsDiv.innerHTML = products.map(product => `
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 shadow-sm hover-card">
+                <div class="card-body">
+                    <h5 class="card-title">${product.name}</h5>
+                    <p class="text-muted"><i class="fas fa-building"></i> ${product.brand}</p>
+                    <p class="text-muted"><i class="fas fa-tag"></i> ${product.category}</p>
+                    
+                    <div class="mb-3">
+                        <span class="nutri-score nutri-${product.nutri_score.toLowerCase()}">
+                            Nutri-Score ${product.nutri_score}
+                        </span>
+                        <span class="badge bg-info ms-2">NOVA ${product.nova_score}</span>
+                    </div>
+                    
+                    ${product.controversies.length > 0 ? 
+                        `<div class="mb-3">
+                            ${product.controversies.map(c => `<span class="controversy-alert">${c}</span>`).join('')}
+                        </div>` : 
+                        '<div class="mb-3"><span class="badge bg-success">✅ Aucune controverse</span></div>'
+                    }
+                    
+                    <a href="/product/${product.id}" class="btn btn-outline-success w-100">
+                        <i class="fas fa-info-circle"></i> Voir les détails
+                    </a>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Recherche automatique au chargement
+window.onload = () => searchProducts();
+</script>
+
+<style>
+.hover-card {
+    transition: transform 0.2s;
+}
+.hover-card:hover {
+    transform: translateY(-5px);
+}
+</style>
+{% endblock %}
