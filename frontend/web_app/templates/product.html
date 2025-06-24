@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.name }} - SoGood{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h2><i class="fas fa-apple-alt"></i> {{ product.name }}</h2>
+                    <p class="mb-0"><strong>{{ product.brand }}</strong> - {{ product.category }}</p>
+                </div>
+                <div class="card-body">
+                    <!-- Scores nutritionnels -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h4>🏆 Scores Nutritionnels</h4>
+                            <div class="mb-3">
+                                <span class="nutri-score nutri-{{ product.nutri_score.lower() }}">
+                                    Nutri-Score {{ product.nutri_score }}
+                                </span>
+                            </div>
+                            <div>
+                                <span class="badge bg-info fs-6 p-2">
+                                    NOVA Groupe {{ product.nova_score }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h4>⚠️ Alertes</h4>
+                            {% if product.controversies %}
+                                {% for controversy in product.controversies %}
+                                <div class="controversy-alert mb-2">{{ controversy }}</div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-success">✅ Aucune controverse détectée</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Valeurs nutritionnelles -->
+                    <h4>📊 Valeurs Nutritionnelles (pour 100g)</h4>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <tr>
+                                <td><strong>Énergie</strong></td>
+                                <td>{{ product.energy_100g }} kJ</td>
+                                <td>
+                                    {% if product.energy_100g > 1500 %}
+                                        <span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Élevé</span>
+                                    {% else %}
+                                        <span class="text-success"><i class="fas fa-check"></i> Modéré</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Sucres</strong></td>
+                                <td>{{ product.sugar_100g }}g</td>
+                                <td>
+                                    {% if product.sugar_100g > 22.5 %}
+                                        <span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Très élevé</span>
+                                    {% elif product.sugar_100g > 10 %}
+                                        <span class="text-warning"><i class="fas fa-exclamation"></i> Élevé</span>
+                                    {% else %}
+                                        <span class="text-success"><i class="fas fa-check"></i> Acceptable</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Sel</strong></td>
+                                <td>{{ product.salt_100g }}g</td>
+                                <td>
+                                    {% if product.salt_100g > 1.5 %}
+                                        <span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Élevé</span>
+                                    {% else %}
+                                        <span class="text-success"><i class="fas fa-check"></i> Acceptable</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h5><i class="fas fa-tools"></i> Actions</h5>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-primary w-100 mb-2">
+                        <i class="fas fa-balance-scale"></i> Comparer
+                    </button>
+                    <button class="btn btn-outline-secondary w-100">
+                        <i class="fas fa-share"></i> Partager
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <a href="/" class="btn btn-success">
+            <i class="fas fa-arrow-left"></i> Retour à la recherche
+        </a>
+    </div>
+</div>
+{% endblock %}
