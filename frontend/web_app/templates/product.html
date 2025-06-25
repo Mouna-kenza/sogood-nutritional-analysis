@@ -10,14 +10,57 @@
                 <div class="card-header bg-success text-white">
                     <h2><i class="fas fa-apple-alt"></i> {{ product.name }}</h2>
                     <p class="mb-0"><strong>{{ product.brand }}</strong> - {{ product.category }}</p>
+                    {% if product.code %}
+                    <small>Code: {{ product.code }}</small>
+                    {% endif %}
                 </div>
+                
+                <!-- Images du produit -->
+                {% if product.images and product.images.best %}
+                <div class="product-images-section p-3 bg-light">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="main-product-image">
+                                <img src="{{ product.images.best }}" class="img-fluid rounded" alt="{{ product.name }}" 
+                                     onerror="this.style.display='none'">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="additional-images">
+                                {% if product.images.front and product.images.front != product.images.best %}
+                                <div class="mb-2">
+                                    <small class="text-muted">Vue avant:</small>
+                                    <img src="{{ product.images.front }}" class="img-thumbnail" style="max-height: 80px;" 
+                                         alt="Vue avant" onerror="this.style.display='none'">
+                                </div>
+                                {% endif %}
+                                {% if product.images.ingredients %}
+                                <div class="mb-2">
+                                    <small class="text-muted">Ingrédients:</small>
+                                    <img src="{{ product.images.ingredients }}" class="img-thumbnail" style="max-height: 80px;" 
+                                         alt="Ingrédients" onerror="this.style.display='none'">
+                                </div>
+                                {% endif %}
+                                {% if product.images.nutrition %}
+                                <div class="mb-2">
+                                    <small class="text-muted">Nutrition:</small>
+                                    <img src="{{ product.images.nutrition }}" class="img-thumbnail" style="max-height: 80px;" 
+                                         alt="Nutrition" onerror="this.style.display='none'">
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
                 <div class="card-body">
                     <!-- Scores nutritionnels -->
                     <div class="row mb-4">
                         <div class="col-md-6">
                             <h4>🏆 Scores Nutritionnels</h4>
                             <div class="mb-3">
-                                <span class="nutri-score nutri-{{ product.nutri_score.lower() }}">
+                                <span class="nutri-score nutri-{{ product.nutri_score.lower() if product.nutri_score != 'N/A' else 'n/a' }}">
                                     Nutri-Score {{ product.nutri_score }}
                                 </span>
                             </div>
@@ -29,7 +72,7 @@
                         </div>
                         <div class="col-md-6">
                             <h4>⚠️ Alertes</h4>
-                            {% if product.controversies %}
+                            {% if product.controversies and product.controversies|length > 0 %}
                                 {% for controversy in product.controversies %}
                                 <div class="controversy-alert mb-2">{{ controversy }}</div>
                                 {% endfor %}
@@ -43,43 +86,130 @@
                     <h4>📊 Valeurs Nutritionnelles (pour 100g)</h4>
                     <div class="table-responsive">
                         <table class="table table-striped">
-                            <tr>
-                                <td><strong>Énergie</strong></td>
-                                <td>{{ product.energy_100g }} kJ</td>
-                                <td>
-                                    {% if product.energy_100g > 1500 %}
-                                        <span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Élevé</span>
-                                    {% else %}
-                                        <span class="text-success"><i class="fas fa-check"></i> Modéré</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><strong>Sucres</strong></td>
-                                <td>{{ product.sugar_100g }}g</td>
-                                <td>
-                                    {% if product.sugar_100g > 22.5 %}
-                                        <span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Très élevé</span>
-                                    {% elif product.sugar_100g > 10 %}
-                                        <span class="text-warning"><i class="fas fa-exclamation"></i> Élevé</span>
-                                    {% else %}
-                                        <span class="text-success"><i class="fas fa-check"></i> Acceptable</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><strong>Sel</strong></td>
-                                <td>{{ product.salt_100g }}g</td>
-                                <td>
-                                    {% if product.salt_100g > 1.5 %}
-                                        <span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Élevé</span>
-                                    {% else %}
-                                        <span class="text-success"><i class="fas fa-check"></i> Acceptable</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
+                            <thead>
+                                <tr>
+                                    <th>Nutriment</th>
+                                    <th>Valeur</th>
+                                    <th>Évaluation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Énergie</strong></td>
+                                    <td>{{ "%.0f"|format(product.nutrition.energy_100g) if product.nutrition.energy_100g else 0 }} kJ</td>
+                                    <td>
+                                        {% if product.nutrition.energy_100g and product.nutrition.energy_100g > 1500 %}
+                                            <span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Élevé</span>
+                                        {% else %}
+                                            <span class="text-success"><i class="fas fa-check"></i> Modéré</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Matières grasses</strong></td>
+                                    <td>{{ "%.1f"|format(product.nutrition.fat_100g) if product.nutrition.fat_100g else 0 }}g</td>
+                                    <td>
+                                        {% if product.nutrition.fat_100g and product.nutrition.fat_100g > 20 %}
+                                            <span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Élevé</span>
+                                        {% else %}
+                                            <span class="text-success"><i class="fas fa-check"></i> Acceptable</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Graisses saturées</strong></td>
+                                    <td>{{ "%.1f"|format(product.nutrition.saturated_fat_100g) if product.nutrition.saturated_fat_100g else 0 }}g</td>
+                                    <td>
+                                        {% if product.nutrition.saturated_fat_100g and product.nutrition.saturated_fat_100g > 5 %}
+                                            <span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Élevé</span>
+                                        {% else %}
+                                            <span class="text-success"><i class="fas fa-check"></i> Acceptable</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Glucides</strong></td>
+                                    <td>{{ "%.1f"|format(product.nutrition.carbohydrates_100g) if product.nutrition.carbohydrates_100g else 0 }}g</td>
+                                    <td>
+                                        <span class="text-info"><i class="fas fa-info-circle"></i> Information</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Sucres</strong></td>
+                                    <td>{{ "%.1f"|format(product.nutrition.sugars_100g) if product.nutrition.sugars_100g else 0 }}g</td>
+                                    <td>
+                                        {% if product.nutrition.sugars_100g and product.nutrition.sugars_100g > 22.5 %}
+                                            <span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Très élevé</span>
+                                        {% elif product.nutrition.sugars_100g and product.nutrition.sugars_100g > 10 %}
+                                            <span class="text-warning"><i class="fas fa-exclamation"></i> Élevé</span>
+                                        {% else %}
+                                            <span class="text-success"><i class="fas fa-check"></i> Acceptable</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Fibres</strong></td>
+                                    <td>{{ "%.1f"|format(product.nutrition.fiber_100g) if product.nutrition.fiber_100g else 0 }}g</td>
+                                    <td>
+                                        {% if product.nutrition.fiber_100g and product.nutrition.fiber_100g > 3 %}
+                                            <span class="text-success"><i class="fas fa-check"></i> Bon</span>
+                                        {% else %}
+                                            <span class="text-warning"><i class="fas fa-exclamation"></i> Faible</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Protéines</strong></td>
+                                    <td>{{ "%.1f"|format(product.nutrition.proteins_100g) if product.nutrition.proteins_100g else 0 }}g</td>
+                                    <td>
+                                        {% if product.nutrition.proteins_100g and product.nutrition.proteins_100g > 10 %}
+                                            <span class="text-success"><i class="fas fa-check"></i> Bon</span>
+                                        {% else %}
+                                            <span class="text-info"><i class="fas fa-info-circle"></i> Modéré</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Sel</strong></td>
+                                    <td>{{ "%.2f"|format(product.nutrition.salt_100g) if product.nutrition.salt_100g else 0 }}g</td>
+                                    <td>
+                                        {% if product.nutrition.salt_100g and product.nutrition.salt_100g > 1.5 %}
+                                            <span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Élevé</span>
+                                        {% else %}
+                                            <span class="text-success"><i class="fas fa-check"></i> Acceptable</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
+                    
+                    <!-- Informations supplémentaires -->
+                    {% if product.ingredients or product.allergens or product.additives %}
+                    <h4 class="mt-4">📋 Informations Complémentaires</h4>
+                    <div class="row">
+                        {% if product.ingredients %}
+                        <div class="col-md-6">
+                            <h5>🧪 Ingrédients</h5>
+                            <p class="text-muted">{{ product.ingredients[:200] }}{% if product.ingredients|length > 200 %}...{% endif %}</p>
+                        </div>
+                        {% endif %}
+                        
+                        {% if product.allergens %}
+                        <div class="col-md-6">
+                            <h5>⚠️ Allergènes</h5>
+                            <p class="text-danger">{{ product.allergens }}</p>
+                        </div>
+                        {% endif %}
+                        
+                        {% if product.additives %}
+                        <div class="col-md-6">
+                            <h5>🔬 Additifs</h5>
+                            <p class="text-warning">{{ product.additives }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -93,11 +223,33 @@
                     <button class="btn btn-primary w-100 mb-2">
                         <i class="fas fa-balance-scale"></i> Comparer
                     </button>
-                    <button class="btn btn-outline-secondary w-100">
+                    <button class="btn btn-outline-secondary w-100 mb-2">
                         <i class="fas fa-share"></i> Partager
+                    </button>
+                    <button class="btn btn-outline-info w-100">
+                        <i class="fas fa-download"></i> Exporter
                     </button>
                 </div>
             </div>
+            
+            {% if product.completeness %}
+            <div class="card shadow mt-3">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-pie"></i> Qualité des Données</h5>
+                </div>
+                <div class="card-body">
+                    <div class="progress mb-2">
+                        <div class="progress-bar bg-success" role="progressbar" 
+                             style="width: {{ product.completeness }}%"
+                             aria-valuenow="{{ product.completeness }}" 
+                             aria-valuemin="0" aria-valuemax="100">
+                            {{ "%.0f"|format(product.completeness) }}%
+                        </div>
+                    </div>
+                    <small class="text-muted">Complétude des informations nutritionnelles</small>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
     
@@ -107,4 +259,50 @@
         </a>
     </div>
 </div>
+
+<style>
+.nutri-score {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: bold;
+    color: white;
+    font-size: 1.1em;
+}
+
+.nutri-a { background-color: #038141; }
+.nutri-b { background-color: #85BB2F; }
+.nutri-c { background-color: #FECB02; }
+.nutri-d { background-color: #EF8200; }
+.nutri-e { background-color: #E63E11; }
+.nutri-n/a { background-color: #6c757d; }
+
+.controversy-alert {
+    display: inline-block;
+    background-color: #dc3545;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    margin: 2px;
+}
+
+.product-images-section {
+    border-bottom: 1px solid #dee2e6;
+}
+
+.main-product-image img {
+    max-height: 300px;
+    width: 100%;
+    object-fit: contain;
+}
+
+.additional-images img {
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.additional-images img:hover {
+    opacity: 0.8;
+}
+</style>
 {% endblock %}

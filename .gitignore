@@ -192,3 +192,274 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# =============================================================================
+# SOGOOD PROJECT SPECIFIC IGNORES
+# =============================================================================
+
+# Environment and Configuration
+.env.local
+.env.production
+.env.staging
+config/local.py
+config/production.py
+secrets.json
+credentials.json
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+backup.sql
+dump.sql
+*.dump
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+docker-compose.prod.yml
+
+# Logs
+logs/
+*.log
+*.log.*
+log/
+app.log
+error.log
+access.log
+
+# Data Files (Large datasets)
+data/raw/*.csv
+data/raw/*.json
+data/raw/*.parquet
+data/raw/*.xlsx
+data/raw/*.xls
+data/processed/
+data/temp/
+data/cache/
+
+# Keep only the sample data file
+!data/raw/README.md
+
+# Notebooks output
+notebooks/*.ipynb
+!notebooks/README.md
+
+# Power BI
+*.pbix
+*.pbix.bak
+*.pbix.tmp
+
+# ML Models and Cache
+models/
+*.pkl
+*.pickle
+*.joblib
+*.h5
+*.hdf5
+*.model
+cache/
+.cache/
+
+# Temporary Files
+tmp/
+temp/
+.tmp/
+.temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.atom/
+.brackets.json
+
+# Node.js (if using any frontend tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Backup Files
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+
+# Test Files
+test_*.py
+*_test.py
+tests/temp/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Documentation Build
+docs/_build/
+docs/build/
+site/
+
+# Scripts Output
+scripts/output/
+scripts/results/
+*.output
+*.result
+
+# API Keys and Secrets
+api_keys.txt
+secrets.txt
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Large Media Files
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+*.webm
+*.mkv
+*.mp3
+*.wav
+*.flac
+*.aac
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Compiled Files
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dll
+*.dylib
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# PySpark
+.spark/
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Airflow
+airflow.cfg
+airflow.db
+airflow-webserver.pid
+logs/
+plugins/
+standalone_admin_password.txt
+webserver_config.py
+
+# Redis
+dump.rdb
+*.rdb
+
+# Elasticsearch
+data/
+logs/
+
+# Monitoring
+prometheus.yml
+grafana/
+alertmanager.yml
+
+# Deployment
+deploy/
+dist/
+build/
+*.spec
+
+# Local Development
+local_settings.py
+settings_local.py
+config_local.py
+
+# Performance and Profiling
+*.prof
+*.profile
+*.trace
+*.trace.*
+
+# Security
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+*.jks
+
+# Backup and Recovery
+*.backup
+*.bak
+*.old
+*.orig
+*.save
+*.swp
+*.swo
+*~
+
+# Temporary Scripts
+temp_*.py
+debug_*.py
+test_*.py
+*_temp.py
+*_debug.py
+
+# Data Processing
+*.processed
+*.cleaned
+*.transformed
+*.aggregated
+*.filtered
+
+# Reports and Exports
+reports/
+exports/
+*.pdf
+*.xlsx
+*.csv
+*.json
+*.xml
+
+# Keep important project files
+!requirements.txt
+!setup.py
+!README.md
+!QUICKSTART.md
+!TEAM_SETUP.md
+!docker-compose.yml
+!Dockerfile
+!env.example
+!start_frontend.py
+!start.ps1
+!start.sh
