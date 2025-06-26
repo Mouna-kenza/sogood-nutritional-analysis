@@ -37,7 +37,53 @@ CATEGORIES = [
 @app.route('/')
 def home():
     """Page d'accueil avec recherche de produits"""
-    return render_template('index.html')
+    # Charger automatiquement les produits au chargement de la page
+    query = request.args.get('q', '')
+    page = int(request.args.get('page', 1))
+    category = request.args.get('category', '')
+    
+    # Construire l'URL de l'API
+    api_url = f"{API_BASE_URL}/products/search"
+    params = {
+        'q': query,
+        'page': page,
+        'page_size': 20
+    }
+    
+    if category:
+        params['category'] = category
+    
+    try:
+        response = requests.get(api_url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        products = data.get('products', [])
+        total_products = data.get('total', 0)
+        total_pages = data.get('total_pages', 1)
+        
+        # Calculer les pages à afficher
+        start_page = max(1, page - 2)
+        end_page = min(total_pages, page + 2)
+        
+        return render_template('index.html', 
+                             products=products, 
+                             query=query,
+                             category=category,
+                             categories=CATEGORIES,
+                             current_page=page,
+                             total_pages=total_pages,
+                             start_page=start_page,
+                             end_page=end_page,
+                             total_products=total_products)
+    except requests.RequestException as e:
+        print(f"Erreur API: {e}")
+        return render_template('index.html', 
+                             products=[], 
+                             query=query,
+                             category=category,
+                             categories=CATEGORIES,
+                             error="Erreur de connexion à l'API")
 
 @app.route('/dashboard')
 def dashboard():

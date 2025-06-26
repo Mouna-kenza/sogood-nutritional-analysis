@@ -28,7 +28,12 @@ app.add_middleware(
 
 # Inclusion des routes
 app.include_router(product_router, prefix="/api/products", tags=["products"])
-app.include_router(stats_router, tags=["statistics"])
+app.include_router(stats_router, prefix="/api/stats", tags=["statistics"])
+
+# Endpoint de test simple
+@app.get("/test")
+async def test():
+    return {"message": "Test endpoint works!"}
 
 @app.on_event("startup")
 async def startup_event():

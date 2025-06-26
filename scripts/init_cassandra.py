@@ -25,9 +25,12 @@ def init_cassandra():
             password=settings.CASSANDRA_PASSWORD
         )
         
+        # Convertir CASSANDRA_HOSTS en liste
+        hosts = [settings.CASSANDRA_HOSTS] if isinstance(settings.CASSANDRA_HOSTS, str) else settings.CASSANDRA_HOSTS
+        
         # Connexion au cluster
         cluster = Cluster(
-            contact_points=settings.CASSANDRA_HOSTS,
+            contact_points=hosts,
             port=settings.CASSANDRA_PORT,
             auth_provider=auth_provider,
             protocol_version=4
@@ -51,7 +54,7 @@ def init_cassandra():
         
         # Configuration de cqlengine
         connection.setup(
-            hosts=settings.CASSANDRA_HOSTS,
+            hosts=hosts,
             default_keyspace=settings.CASSANDRA_KEYSPACE,
             protocol_version=4,
             auth_provider=auth_provider
