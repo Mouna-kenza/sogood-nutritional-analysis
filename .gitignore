@@ -193,6 +193,7 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+<<<<<<< HEAD
 # =============================================================================
 # SOGOOD PROJECT SPECIFIC IGNORES
 # =============================================================================
@@ -467,6 +468,10 @@ exports/
 !start_frontend.py
 !start.ps1
 !start.sh
+=======
+# requirements
+requirements.txt
+>>>>>>> bc7a0d1 (Add model prediction)
 
 # Data
 *.csv
