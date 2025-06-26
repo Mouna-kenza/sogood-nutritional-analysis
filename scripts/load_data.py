@@ -21,7 +21,7 @@ ESSENTIAL_COLUMNS = [
     'nutrition_grade_fr', 'completeness'
 ]
 
-CSV_FILE_PATH = "notebooks/fr.openfoodfacts.org.products.csv"
+CSV_FILE_PATH = "notebooks/sogood_final_20250625_2235.csv"  # Fichier final nettoyé
 
 class DataLoader:
     def __init__(self):
@@ -160,28 +160,38 @@ class DataLoader:
         # Créer les tables (commenté pour éviter de recréer à chaque fois)
         # create_tables()
         
-        # Lire le CSV par chunks
-        chunk_count = 0
+        # Lire le CSV par chunks pour gérer la mémoire
+        chunk_size = 1000
+        total_imported = 0
         
         try:
             # Lire le CSV avec les colonnes essentielles uniquement
             csv_columns = None
-            df_test = pd.read_csv(CSV_FILE_PATH, sep='\t', nrows=0)
+            df_test = pd.read_csv(CSV_FILE_PATH, sep=',', nrows=0)
             available_columns = df_test.columns.tolist()
             csv_columns = [col for col in ESSENTIAL_COLUMNS if col in available_columns]
             
             logger.info(f"📊 Colonnes disponibles: {len(csv_columns)}/{len(ESSENTIAL_COLUMNS)}")
             
-            for chunk in pd.read_csv(
-                CSV_FILE_PATH, 
-                sep='\t',
-                chunksize=batch_size,
-                usecols=csv_columns,
-                low_memory=False,
-                nrows=max_rows
-            ):
-                chunk_count += 1
-                logger.info(f"📦 Traitement du chunk {chunk_count} ({len(chunk)} lignes)")
+            # Correction: usecols=None si csv_columns vide, nrows passé seulement si défini
+            read_csv_kwargs = {
+                'filepath_or_buffer': CSV_FILE_PATH,
+                'sep': ',',
+                'chunksize': chunk_size,
+                'low_memory': False,
+                'encoding': 'utf-8'
+            }
+            if csv_columns:
+                read_csv_kwargs['usecols'] = csv_columns
+            if max_rows is not None:
+                read_csv_kwargs['nrows'] = max_rows
+
+            for i, chunk in enumerate(pd.read_csv(**read_csv_kwargs)):
+                if i == 0:
+                    logger.info(f"Colonnes détectées: {chunk.columns.tolist()}")
+                    logger.info(f"Premières lignes:\n{chunk.head()}")
+                chunk_count = 0
+                logger.info(f"📦 Traitement du chunk {total_imported + chunk_count} ({len(chunk)} lignes)")
                 
                 # Traiter le chunk
                 products_batch = []
@@ -201,7 +211,9 @@ class DataLoader:
                 # Insérer en base par batch
                 if products_batch:
                     self.insert_batch(products_batch)
-                    logger.info(f"✅ Chunk {chunk_count} inséré ({len(products_batch)} produits)")
+                    logger.info(f"✅ Chunk {total_imported + chunk_count} inséré ({len(products_batch)} produits)")
+                
+                total_imported += len(products_batch)
         
         except Exception as e:
             logger.error(f"❌ Erreur lecture CSV: {e}")
@@ -211,7 +223,10 @@ class DataLoader:
         logger.info(f"📈 Statistiques:")
         logger.info(f"   - Lignes traitées: {self.processed_count}")
         logger.info(f"   - Erreurs: {self.error_count}")
-        logger.info(f"   - Taux de succès: {((self.processed_count - self.error_count) / self.processed_count * 100):.1f}%")
+        if self.processed_count > 0:
+            logger.info(f"   - Taux de succès: {((self.processed_count - self.error_count) / self.processed_count * 100):.1f}%")
+        else:
+            logger.info("   - Taux de succès: 0% (aucune ligne traitée)")
     
     def insert_batch(self, products: list):
         """Insère un batch de produits en base en ignorant les doublons de code"""

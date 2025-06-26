@@ -107,7 +107,7 @@ docker-compose up -d postgres
 ### Erreur CSV
 ```bash
 # Vérifier la présence du fichier
-ls -la notebooks/fr.openfoodfacts.org.products.csv
+ls -la notebooks/fr.openfoodfacts.org.products1.csv  # Fichier nettoyé avec 500k lignes
 ```
 
 ### Erreur Dépendances

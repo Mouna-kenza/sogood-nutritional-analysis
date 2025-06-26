@@ -241,6 +241,10 @@ data/cache/
 # Keep only the sample data file
 !data/raw/README.md
 
+# CSV Files - Exclude old large files, keep cleaned version
+notebooks/fr.openfoodfacts.org.products.csv
+!notebooks/fr.openfoodfacts.org.products1.csv
+
 # Notebooks output
 notebooks/*.ipynb
 !notebooks/README.md
