@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+
+{% block title %}SoGood - Tableau de Bord{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>📊 Tableau de Bord SoGood</h1>
+        <p>Statistiques nutritionnelles en temps réel</p>
+    </div>
+
+    <!-- KPIs Principaux -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-icon">📦</div>
+            <div class="kpi-content">
+                <h3 id="total-products">-</h3>
+                <p>Produits Total</p>
+            </div>
+        </div>
+        
+        <div class="kpi-card">
+            <div class="kpi-icon">🏷️</div>
+            <div class="kpi-content">
+                <h3 id="total-categories">-</h3>
+                <p>Catégories</p>
+            </div>
+        </div>
+        
+        <div class="kpi-card">
+            <div class="kpi-icon">🏭</div>
+            <div class="kpi-content">
+                <h3 id="total-brands">-</h3>
+                <p>Marques</p>
+            </div>
+        </div>
+        
+        <div class="kpi-card">
+            <div class="kpi-icon">🖼️</div>
+            <div class="kpi-content">
+                <h3 id="products-with-images">-</h3>
+                <p>Avec Images</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphiques -->
+    <div class="charts-grid">
+        <!-- Distribution Nutri-Score -->
+        <div class="chart-card">
+            <h3>🥗 Distribution Nutri-Score</h3>
+            <div class="chart-container">
+                <canvas id="nutriscore-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Top Catégories -->
+        <div class="chart-card">
+            <h3>📊 Top Catégories</h3>
+            <div class="chart-container">
+                <canvas id="categories-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Top Marques -->
+        <div class="chart-card">
+            <h3>🏭 Top Marques</h3>
+            <div class="chart-container">
+                <canvas id="brands-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Qualité des Données -->
+        <div class="chart-card">
+            <h3>📈 Qualité des Données</h3>
+            <div class="chart-container">
+                <canvas id="quality-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques Nutritionnelles -->
+    <div class="nutrition-section">
+        <h2>📊 Statistiques Nutritionnelles</h2>
+        <div class="nutrition-grid">
+            <div class="nutrition-card">
+                <h4>⚡ Énergie (kcal/100g)</h4>
+                <div class="nutrition-value" id="avg-energy">-</div>
+            </div>
+            <div class="nutrition-card">
+                <h4>🧈 Matières grasses (g/100g)</h4>
+                <div class="nutrition-value" id="avg-fat">-</div>
+            </div>
+            <div class="nutrition-card">
+                <h4>🥩 Protéines (g/100g)</h4>
+                <div class="nutrition-value" id="avg-proteins">-</div>
+            </div>
+            <div class="nutrition-card">
+                <h4>🍯 Sucres (g/100g)</h4>
+                <div class="nutrition-value" id="avg-sugar">-</div>
+            </div>
+            <div class="nutrition-card">
+                <h4>🧂 Sel (g/100g)</h4>
+                <div class="nutrition-value" id="avg-salt">-</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions-section">
+        <h2>🔄 Actions</h2>
+        <div class="actions-grid">
+            <button class="action-btn" onclick="exportData()">
+                📥 Exporter CSV pour Power BI
+            </button>
+            <button class="action-btn" onclick="refreshStats()">
+                🔄 Actualiser les données
+            </button>
+            <a href="/" class="action-btn secondary">
+                🏠 Retour à l'accueil
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let charts = {};
+
+// Charger les statistiques au démarrage
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardData();
+});
+
+async function loadDashboardData() {
+    try {
+        const response = await fetch('/api/stats/overview');
+        const data = await response.json();
+        
+        updateKPIs(data);
+        createCharts(data);
+        
+    } catch (error) {
+        console.error('Erreur lors du chargement des données:', error);
+        showError('Erreur lors du chargement des données');
+    }
+}
+
+function updateKPIs(data) {
+    document.getElementById('total-products').textContent = data.total_products?.toLocaleString() || '-';
+    document.getElementById('total-categories').textContent = Object.keys(data.categories || {}).length;
+    document.getElementById('total-brands').textContent = Object.keys(data.brands || {}).length;
+    document.getElementById('products-with-images').textContent = data.quality_stats?.with_images || '-';
+    
+    // Moyennes nutritionnelles
+    const nutrition = data.nutrition_averages || {};
+    document.getElementById('avg-energy').textContent = nutrition.avg_energy?.toFixed(1) || '-';
+    document.getElementById('avg-fat').textContent = nutrition.avg_fat?.toFixed(1) || '-';
+    document.getElementById('avg-proteins').textContent = nutrition.avg_proteins?.toFixed(1) || '-';
+    document.getElementById('avg-sugar').textContent = nutrition.avg_sugar?.toFixed(1) || '-';
+    document.getElementById('avg-salt').textContent = nutrition.avg_salt?.toFixed(3) || '-';
+}
+
+function createCharts(data) {
+    // Chart Nutri-Score
+    const nutriscoreCtx = document.getElementById('nutriscore-chart').getContext('2d');
+    const nutriscoreData = data.nutri_scores || {};
+    
+    charts.nutriscore = new Chart(nutriscoreCtx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(nutriscoreData),
+            datasets: [{
+                data: Object.values(nutriscoreData),
+                backgroundColor: [
+                    '#4CAF50', '#8BC34A', '#FFC107', '#FF9800', '#F44336'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Chart Catégories
+    const categoriesCtx = document.getElementById('categories-chart').getContext('2d');
+    const categoriesData = data.categories || {};
+    
+    charts.categories = new Chart(categoriesCtx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(categoriesData).slice(0, 8),
+            datasets: [{
+                label: 'Nombre de produits',
+                data: Object.values(categoriesData).slice(0, 8),
+                backgroundColor: '#2196F3'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    // Chart Marques
+    const brandsCtx = document.getElementById('brands-chart').getContext('2d');
+    const brandsData = data.brands || {};
+    
+    charts.brands = new Chart(brandsCtx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(brandsData).slice(0, 8),
+            datasets: [{
+                label: 'Nombre de produits',
+                data: Object.values(brandsData).slice(0, 8),
+                backgroundColor: '#9C27B0'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    // Chart Qualité
+    const qualityCtx = document.getElementById('quality-chart').getContext('2d');
+    const qualityData = data.quality_stats || {};
+    
+    charts.quality = new Chart(qualityCtx, {
+        type: 'radar',
+        data: {
+            labels: ['Images', 'Données nutritionnelles', 'Infos marque', 'Infos catégorie'],
+            datasets: [{
+                label: 'Qualité des données',
+                data: [
+                    qualityData.with_images || 0,
+                    qualityData.with_nutrition_data || 0,
+                    qualityData.with_brand_info || 0,
+                    qualityData.with_category_info || 0
+                ],
+                backgroundColor: 'rgba(33, 150, 243, 0.2)',
+                borderColor: '#2196F3',
+                pointBackgroundColor: '#2196F3'
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                r: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+async function exportData() {
+    try {
+        const response = await fetch('/api/stats/export-csv');
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sogood_products.csv';
+            a.click();
+            window.URL.revokeObjectURL(url);
+            showSuccess('Export CSV réussi !');
+        } else {
+            showError('Erreur lors de l\'export');
+        }
+    } catch (error) {
+        console.error('Erreur export:', error);
+        showError('Erreur lors de l\'export');
+    }
+}
+
+function refreshStats() {
+    // Détruire les anciens graphiques
+    Object.values(charts).forEach(chart => {
+        if (chart) chart.destroy();
+    });
+    charts = {};
+    
+    // Recharger les données
+    loadDashboardData();
+    showSuccess('Données actualisées !');
+}
+
+function showSuccess(message) {
+    // Implémenter une notification de succès
+    alert(message);
+}
+
+function showError(message) {
+    // Implémenter une notification d'erreur
+    alert('Erreur: ' + message);
+}
+</script>
+{% endblock %} 

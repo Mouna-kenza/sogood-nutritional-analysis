@@ -1,38 +1,45 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15
-    container_name: sogood_postgres
+  cassandra:
+    image: cassandra:4.1
+    container_name: sogood_cassandra
     environment:
-      POSTGRES_USER: sogood_user
-      POSTGRES_PASSWORD: sogood_password
-      POSTGRES_DB: sogood_db
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+      - CASSANDRA_CLUSTER_NAME=SoGoodCluster
+      - CASSANDRA_DC=datacenter1
+      - CASSANDRA_RACK=rack1
+      - CASSANDRA_ENDPOINT_SNITCH=SimpleSnitch
+      - CASSANDRA_USER=cassandra
+      - CASSANDRA_PASSWORD=cassandra
     ports:
-      - "5432:5432"
+      - "9042:9042"
+      - "7000:7000"
+      - "7001:7001"
+      - "9160:9160"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - cassandra_data:/var/lib/cassandra
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sogood_user -d sogood_db"]
+      test: ["CMD", "cqlsh", "-u", "cassandra", "-p", "cassandra", "-e", "SELECT release_version FROM system.local"]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 5
+      start_period: 60s
 
   api:
     build: .
     container_name: sogood_api
     environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=sogood_user
-      - DB_PASSWORD=sogood_password
-      - DB_NAME=sogood_db
+      - CASSANDRA_HOSTS=cassandra
+      - CASSANDRA_PORT=9042
+      - CASSANDRA_USERNAME=cassandra
+      - CASSANDRA_PASSWORD=cassandra
+      - CASSANDRA_KEYSPACE=sogood
+      - CASSANDRA_DATACENTER=datacenter1
     ports:
       - "8000:8000"
     depends_on:
-      postgres:
+      cassandra:
         condition: service_healthy
     volumes:
       - ./data:/app/data
@@ -40,4 +47,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres_data: 
+  cassandra_data: 

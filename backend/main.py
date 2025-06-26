@@ -1,107 +1,72 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
 import logging
-import uvicorn
-
-from backend.config import settings
-from backend.database import get_db, check_database_connection, create_tables
 from backend.controllers.product_controller import router as product_router
-from backend.models.product import Product
+from backend.controllers.stats_controller import router as stats_router
+from backend.database import check_database_connection, create_tables
+from backend.config import settings
 
 # Configuration des logs
-logging.basicConfig(level=settings.LOG_LEVEL)
+logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL))
 logger = logging.getLogger(__name__)
 
 # Création de l'application FastAPI
 app = FastAPI(
     title=settings.APP_NAME,
-    description=settings.APP_DESCRIPTION,
     version=settings.APP_VERSION,
-    debug=settings.DEBUG
+    description=settings.APP_DESCRIPTION
 )
 
-# Configuration CORS pour le frontend Flask
+# Configuration CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5000", "http://127.0.0.1:5000"],  # Frontend Flask
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Inclusion des routers
-app.include_router(product_router, prefix="/api/v1/products", tags=["products"])
+# Inclusion des routes
+app.include_router(product_router, prefix="/api/products", tags=["products"])
+app.include_router(stats_router, tags=["statistics"])
 
 @app.on_event("startup")
 async def startup_event():
-    """Événements au démarrage de l'application"""
-    logger.info(f"🚀 Démarrage de {settings.APP_NAME} v{settings.APP_VERSION}")
-    logger.info(f"🔧 Environnement: {settings.ENVIRONMENT}")
+    """Événement de démarrage de l'application"""
+    logger.info("🚀 Démarrage de l'application SoGood")
     
     # Vérifier la connexion à la base de données
     if not check_database_connection():
-        logger.error("❌ Impossible de se connecter à la base de données")
-        raise RuntimeError("Connexion base de données échouée")
+        logger.error("❌ Impossible de se connecter à Cassandra")
+        raise Exception("Erreur de connexion à la base de données")
     
     # Créer les tables si nécessaire
     try:
         create_tables()
-        logger.info("✅ Tables vérifiées/créées")
+        logger.info("✅ Tables créées avec succès")
     except Exception as e:
-        logger.error(f"❌ Erreur création tables: {e}")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Événements à l'arrêt de l'application"""
-    logger.info("🛑 Arrêt de l'application SoGood")
+        logger.error(f"❌ Erreur création des tables: {e}")
+        raise
 
 @app.get("/")
 async def root():
-    """Point d'entrée racine de l'API"""
+    """Point d'entrée de l'API"""
     return {
-        "message": f"🥗 {settings.APP_NAME} - API d'analyse nutritionnelle",
+        "message": "SoGood API - Analyse nutritionnelle",
         "version": settings.APP_VERSION,
-        "status": "active",
-        "endpoints": {
-            "products": "/api/v1/products",
-            "search": "/api/v1/products/search",
-            "docs": "/docs"
-        }
+        "status": "running"
     }
 
 @app.get("/health")
-async def health_check(db: Session = Depends(get_db)):
+async def health_check():
     """Vérification de l'état de santé de l'API"""
     try:
-        # Test de la base de données
-        product_count = db.query(Product).count()
-        
+        db_ok = check_database_connection()
         return {
-            "status": "healthy",
-            "database": "connected",
-            "products_count": product_count,
-            "environment": settings.ENVIRONMENT
+            "status": "healthy" if db_ok else "unhealthy",
+            "database": "connected" if db_ok else "disconnected",
+            "version": settings.APP_VERSION
         }
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        raise HTTPException(status_code=503, detail="Service unavailable")
-
-@app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    """Gestionnaire global d'exceptions"""
-    logger.error(f"Erreur non gérée: {exc}")
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Erreur interne du serveur"}
-    )
-
-if __name__ == "__main__":
-    uvicorn.run(
-        "backend.main:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG,
-        log_level=settings.LOG_LEVEL.lower()
-    ) 
+        logger.error(f"Erreur health check: {e}")
+        raise HTTPException(status_code=500, detail="Service indisponible") 

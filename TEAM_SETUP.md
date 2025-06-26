@@ -14,7 +14,7 @@ Ce guide explique comment démarrer le projet SoGood pour travailler en équipe 
 docker --version
 docker-compose --version
 
-# Vérifier Python 3.8+
+# Vérifier Python 3.10+
 python --version
 
 # Installer les dépendances Python
@@ -33,7 +33,7 @@ cp env.example .env
 
 ### 1. Démarrer l'Infrastructure Complète
 ```bash
-# Démarrer PostgreSQL + Backend API
+# Démarrer Cassandra + Backend API
 docker-compose up -d
 
 # Vérifier que tout fonctionne
@@ -41,12 +41,18 @@ docker ps
 ```
 
 **Résultat attendu :**
-- `sogood_postgres` : Base de données PostgreSQL (port 5432)
+- `sogood_cassandra` : Base de données Cassandra (port 9042)
 - `sogood_api` : API FastAPI (port 8000)
 
-### 2. Charger les Données
+### 2. Initialiser Cassandra
 ```bash
-# Charger les produits dans la base (999 produits uniques)
+# Initialiser les tables Cassandra
+python scripts/init_cassandra.py
+```
+
+### 3. Charger les Données
+```bash
+# Charger les produits dans la base
 python scripts/load_data.py
 ```
 
@@ -56,17 +62,20 @@ python scripts/load_data.py
 
 ### Option A : Backend + Base de Données Docker
 ```bash
-# 1. Démarrer seulement PostgreSQL
-docker-compose up -d postgres
+# 1. Démarrer seulement Cassandra
+docker-compose up -d cassandra
 
-# 2. Démarrer le backend en local
+# 2. Initialiser Cassandra
+python scripts/init_cassandra.py
+
+# 3. Démarrer le backend en local
 python backend/main.py
 ```
 
 ### Option B : Tout en Local
 ```bash
-# 1. Installer PostgreSQL localement
-# 2. Créer la base 'sogood_db'
+# 1. Installer Cassandra localement
+# 2. Créer le keyspace 'sogood'
 # 3. Modifier .env avec les bonnes connexions
 # 4. Démarrer le backend
 python backend/main.py
@@ -97,8 +106,8 @@ python app.py
 
 ### 👨‍💻 **Giscard - Backend & Base de Données**
 ```bash
-# Accès à la base de données
-docker exec -it sogood_postgres psql -U sogood_user -d sogood_db
+# Accès à Cassandra
+docker exec -it sogood_cassandra cqlsh
 
 # Logs du backend
 docker logs sogood_api
@@ -136,7 +145,7 @@ python scripts/analyze_data_quality.py
 ### 1. Test de la Base de Données
 ```bash
 # Vérifier les produits chargés
-docker exec sogood_postgres psql -U sogood_user -d sogood_db -c "SELECT COUNT(*) FROM products;"
+docker exec sogood_cassandra cqlsh -e "SELECT COUNT(*) FROM sogood.products;"
 ```
 
 ### 2. Test de l'API Backend
@@ -172,13 +181,14 @@ docker-compose down -v
 ### Base de Données
 ```bash
 # Connexion directe
-docker exec -it sogood_postgres psql -U sogood_user -d sogood_db
+docker exec -it sogood_cassandra cqlsh
 
-# Sauvegarder
-docker exec sogood_postgres pg_dump -U sogood_user sogood_db > backup.sql
+# Sauvegarder (optionnel)
+# Cassandra ne nécessite pas de sauvegarde traditionnelle
+# Les données sont répliquées automatiquement
 
-# Restaurer
-docker exec -i sogood_postgres psql -U sogood_user -d sogood_db < backup.sql
+# Vérifier l'état
+docker exec sogood_cassandra nodetool status
 ```
 
 ### Développement
@@ -199,14 +209,24 @@ python scripts/optimize_db.py
 
 ### Problème de Connexion Base
 ```bash
-# Vérifier que PostgreSQL tourne
-docker ps | grep postgres
+# Vérifier que Cassandra tourne
+docker ps | grep cassandra
 
 # Vérifier les logs
-docker logs sogood_postgres
+docker logs sogood_cassandra
 
-# Redémarrer
-docker-compose restart postgres
+# Redémarrer Cassandra
+docker-compose restart cassandra
+```
+
+### Problème de Données
+```bash
+# Vérifier les tables
+docker exec sogood_cassandra cqlsh -e "DESCRIBE KEYSPACES;"
+docker exec sogood_cassandra cqlsh -e "USE sogood; DESCRIBE TABLES;"
+
+# Recharger les données
+python scripts/load_data.py --max-rows 1000
 ```
 
 ### Problème API
@@ -217,90 +237,127 @@ docker logs sogood_api
 # Redémarrer l'API
 docker-compose restart api
 
-# Ou redémarrer manuellement
-python backend/main.py
+# Test de connexion
+curl http://localhost:8000/health
 ```
 
-### Problème Frontend
+---
+
+## 📊 Monitoring
+
+### État des Services
 ```bash
-# Vérifier que l'API répond
+# Vérifier tous les services
+docker-compose ps
+
+# Logs en temps réel
+docker-compose logs -f --tail=100
+```
+
+### Métriques Cassandra
+```bash
+# État du cluster
+docker exec sogood_cassandra nodetool status
+
+# Statistiques
+docker exec sogood_cassandra nodetool info
+```
+
+### Métriques API
+```bash
+# Health check
 curl http://localhost:8000/health
 
+# Statistiques
+curl http://localhost:8000/api/products/stats
+```
+
+---
+
+## 🔄 Workflow de Développement
+
+### 1. Développement Backend
+```bash
+# Modifier le code
+# backend/models/
+# backend/controllers/
+# backend/services/
+
+# Tester les changements
+docker-compose restart api
+curl http://localhost:8000/health
+```
+
+### 2. Développement Frontend
+```bash
+# Modifier les templates
+# frontend/web_app/templates/
+
 # Redémarrer le frontend
-python start_frontend.py
+cd frontend/web_app
+python app.py
+```
+
+### 3. Tests de Données
+```bash
+# Charger des données de test
+python scripts/load_data.py --max-rows 100
+
+# Tester les requêtes
+curl "http://localhost:8000/api/products/search?q=test"
 ```
 
 ---
 
-## 📊 Structure des Données
+## 📈 Performance
 
-### Tables Principales
-- **products** : Informations produits (999 produits uniques)
-- **categories** : Catégories hiérarchiques
-- **nutritional_values** : Valeurs nutritionnelles
-- **quality_scores** : Scores calculés (Nutri-Score, NOVA)
+### Optimisations Cassandra
+- **Clés de partition** : Optimisées pour les requêtes fréquentes
+- **Réplication** : 3 copies par défaut
+- **Compression** : LZ4 activée
 
-### API Endpoints
-- `GET /api/products/search` : Recherche avec filtres
-- `GET /api/products/{id}` : Détail produit
-- `GET /api/products/stats/database` : Statistiques
+### Optimisations API
+- **Cache** : Redis (optionnel)
+- **Pagination** : Limite par défaut 20 produits
+- **Filtres** : Indexés sur les champs fréquents
 
 ---
 
-## 🎯 Workflow de Développement
+## 🎯 Prochaines Étapes
 
-### 1. **Démarrage Quotidien**
-```bash
-# 1. Démarrer l'infrastructure
-docker-compose up -d
+### Phase 1 : Base Solide ✅
+- [x] Infrastructure Cassandra
+- [x] API FastAPI
+- [x] Frontend Flask
+- [x] Chargement des données
 
-# 2. Vérifier que tout fonctionne
-python test_setup.py
+### Phase 2 : Fonctionnalités Avancées
+- [ ] Recherche avancée
+- [ ] Filtres nutritionnels
+- [ ] Graphiques et visualisations
+- [ ] Système de recommandations
 
-# 3. Démarrer le frontend
-python start_frontend.py
-```
-
-### 2. **Développement Backend (Giscard)**
-```bash
-# Modifier le code dans backend/
-# L'API redémarre automatiquement (hot reload)
-```
-
-### 3. **Développement Frontend (Mouna)**
-```bash
-# Modifier le code dans frontend/web_app/
-# Le frontend redémarre automatiquement
-```
-
-### 4. **Analytics (Yasser)**
-```bash
-# Travailler dans notebooks/
-# Utiliser les scripts dans scripts/
-```
+### Phase 3 : Production
+- [ ] Monitoring avancé
+- [ ] Tests automatisés
+- [ ] CI/CD
+- [ ] Déploiement cloud
 
 ---
 
 ## 📞 Support Équipe
 
-### Logs Importants
-- **Backend** : `docker logs sogood_api`
-- **Base de données** : `docker logs sogood_postgres`
-- **Frontend** : Console du navigateur + terminal Flask
+### Canaux de Communication
+- **Slack** : #sogood-dev
+- **Email** : dev@sogood.com
+- **GitHub** : Issues et PR
 
-### Points de Contact
-- **Infrastructure** : Giscard
-- **Interface** : Mouna
-- **Données** : Yasser
+### Documentation
+- **API** : http://localhost:8000/docs
+- **Code** : README.md dans chaque dossier
+- **Architecture** : docs/architecture.md
 
----
-
-## 🎉 C'est Parti !
-
-Une fois tout démarré, vous devriez avoir :
-- ✅ Base de données PostgreSQL avec 999 produits
-- ✅ API FastAPI accessible sur http://localhost:8000
-- ✅ Frontend Flask accessible sur http://localhost:5000
-- ✅ Documentation API sur http://localhost:8000/docs
-
-**Bon développement ! 🚀** 
+### Réunions
+- **Daily** : 9h00 - Standup
+- **Sprint** : Vendredi 14h00 - Rétrospective
+- **Architecture** : Mardi 16h00 - Design Review 

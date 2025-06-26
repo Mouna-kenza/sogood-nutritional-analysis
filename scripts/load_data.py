@@ -1,12 +1,12 @@
 import pandas as pd
 import logging
-from sqlalchemy.orm import Session
-from backend.database import SessionLocal, engine, create_tables
+from backend.database import setup_cassandra_connection, create_tables
 from backend.models.product import Product
 from backend.services.nutriscore_service import NutriscoreService
 from backend.config import settings
 import numpy as np
 from typing import Optional, Dict, Any
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -62,8 +62,8 @@ class DataLoader:
         filled_fields = sum(1 for field in nutrition_fields if row_data.get(field) is not None)
         return (filled_fields / len(nutrition_fields)) * 100
     
-    def process_row(self, row) -> Optional[Product]:
-        """Traite une ligne du CSV et retourne un objet Product"""
+    def process_row(self, row) -> Optional[Dict]:
+        """Traite une ligne du CSV et retourne un dictionnaire de données produit"""
         try:
             # Code produit (obligatoire)
             code = self.clean_string_value(row.get('code'), 50)
@@ -101,7 +101,9 @@ class DataLoader:
             if nutriscore_grade:
                 nutriscore_grade = nutriscore_grade.upper()
                 if nutriscore_grade not in ['A', 'B', 'C', 'D', 'E']:
-                    nutriscore_grade = None
+                    nutriscore_grade = 'N/A'
+            else:
+                nutriscore_grade = 'N/A'  # Valeur par défaut pour les produits sans Nutri-Score
             
             nova_group = self.clean_numeric_value(row.get('nova_group'))
             if nova_group and not (1 <= nova_group <= 4):
@@ -109,7 +111,7 @@ class DataLoader:
             
             # Calcul du Nutri-Score si manquant et données suffisantes
             nutriscore_score = self.clean_numeric_value(row.get('nutriscore_score'))
-            if not nutriscore_grade and nutrition_data['energy_100g'] and nutrition_data['fat_100g']:
+            if nutriscore_grade == 'N/A' and nutrition_data['energy_100g'] and nutrition_data['fat_100g']:
                 try:
                     calculated = self.nutriscore_service.calculate_nutriscore(
                         energy_100g=nutrition_data['energy_100g'],
@@ -126,25 +128,27 @@ class DataLoader:
                     nutriscore_score = calculated['nutriscore_score']
                 except Exception as e:
                     logger.warning(f"Erreur calcul Nutri-Score pour {code}: {e}")
+                    # Garder 'N/A' si le calcul échoue
             
             # Complétude
             completeness = self.calculate_completeness(nutrition_data)
             
-            # Création de l'objet Product
-            product = Product(
+            # Données complètes pour Cassandra
+            complete_data = {
                 **product_data,
                 **nutrition_data,
-                nutriscore_grade=nutriscore_grade,
-                nutriscore_score=int(nutriscore_score) if nutriscore_score else None,
-                nova_group=int(nova_group) if nova_group else None,
-                completeness=completeness
-            )
+                'nutriscore_grade': nutriscore_grade,
+                'nutriscore_score': int(nutriscore_score) if nutriscore_score else None,
+                'nova_group': int(nova_group) if nova_group else None,
+                'completeness': completeness,
+                'created_at': datetime.utcnow()
+            }
             
             # Log de debug pour les premiers produits
             if self.processed_count <= 5:
                 logger.info(f"✅ Produit créé: {code} - {product_data.get('product_name', 'N/A')}")
             
-            return product
+            return complete_data
             
         except Exception as e:
             logger.error(f"❌ Erreur traitement ligne {self.processed_count}: {e}")
@@ -157,8 +161,8 @@ class DataLoader:
         """Charge les données du CSV en base"""
         logger.info(f"🚀 Début du chargement de {CSV_FILE_PATH}")
         
-        # Créer les tables (commenté pour éviter de recréer à chaque fois)
-        # create_tables()
+        # Créer les tables
+        create_tables()
         
         # Lire le CSV par chunks pour gérer la mémoire
         chunk_size = 1000
@@ -230,38 +234,36 @@ class DataLoader:
     
     def insert_batch(self, products: list):
         """Insère un batch de produits en base en ignorant les doublons de code"""
-        db = SessionLocal()
         try:
             # Dédupliquer au niveau du batch (garder le premier de chaque code)
             seen_codes = set()
             unique_products = []
             for product in products:
-                if product.code not in seen_codes:
-                    seen_codes.add(product.code)
+                if product['code'] not in seen_codes:
+                    seen_codes.add(product['code'])
                     unique_products.append(product)
             
             if not unique_products:
                 return
-                
-            # Récupérer les codes déjà existants en base
-            codes = [product.code for product in unique_products]
-            existing_codes = set(r[0] for r in db.query(Product.code).filter(Product.code.in_(codes)).all())
             
-            # Ne garder que les nouveaux codes
-            products_to_insert = [product for product in unique_products if product.code not in existing_codes]
+            # Insérer les produits un par un avec gestion des erreurs
+            inserted_count = 0
+            for product_data in unique_products:
+                try:
+                    # Créer le produit avec cqlengine
+                    Product.create(**product_data)
+                    inserted_count += 1
+                except Exception as e:
+                    # Ignorer les erreurs de doublons
+                    if "already exists" not in str(e).lower():
+                        logger.warning(f"Erreur insertion produit {product_data.get('code')}: {e}")
+                    continue
             
-            if not products_to_insert:
-                return
+            logger.info(f"✅ {inserted_count} produits insérés dans ce batch")
             
-            # Utiliser l'ORM pour l'insertion
-            db.add_all(products_to_insert)
-            db.commit()
-            logger.info(f"✅ {len(products_to_insert)} produits insérés dans ce batch")
         except Exception as e:
-            db.rollback()
             logger.error(f"Erreur insertion batch: {e}")
-        finally:
-            db.close()
+            raise
 
 def main():
     loader = DataLoader()

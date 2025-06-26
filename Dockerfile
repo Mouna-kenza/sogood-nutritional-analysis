@@ -1,27 +1,24 @@
-FROM python:3.11-slim
+FROM python:3.10-slim
 
-WORKDIR /app
-
-# Installation des dépendances système
+# Installer les dépendances système
 RUN apt-get update && apt-get install -y \
-    gcc \
-    postgresql-client \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copie des requirements
+# Définir le répertoire de travail
+WORKDIR /app
+
+# Copier les fichiers de dépendances
 COPY requirements.txt .
 
-# Installation des dépendances Python
+# Installer les dépendances Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copie du code source
+# Copier le code source
 COPY . .
 
-# Création des dossiers nécessaires
-RUN mkdir -p logs data/models
-
-# Exposition du port
+# Exposer le port
 EXPOSE 8000
 
-# Point d'entrée
-CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"] 
+# Commande par défaut
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"] 

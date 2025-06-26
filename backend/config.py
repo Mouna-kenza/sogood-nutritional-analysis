@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, List
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
@@ -18,17 +18,13 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     DEBUG: bool = ENVIRONMENT == "development"
     
-    # Configuration de la base de données
-    # Utiliser le nom du conteneur si on est dans Docker, sinon localhost
-    DB_HOST: str = os.getenv("DB_HOST", "postgres")
-    DB_PORT: str = os.getenv("DB_PORT", "5432")
-    DB_USER: str = os.getenv("DB_USER", "sogood_user")
-    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "sogood_password")
-    DB_NAME: str = os.getenv("DB_NAME", "sogood_db")
-    
-    @property
-    def DATABASE_URL(self) -> str:
-        return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+    # Configuration de Cassandra
+    CASSANDRA_HOSTS: str = os.getenv("CASSANDRA_HOSTS", "localhost")
+    CASSANDRA_PORT: int = int(os.getenv("CASSANDRA_PORT", "9042"))
+    CASSANDRA_USERNAME: str = os.getenv("CASSANDRA_USERNAME", "cassandra")
+    CASSANDRA_PASSWORD: str = os.getenv("CASSANDRA_PASSWORD", "cassandra")
+    CASSANDRA_KEYSPACE: str = os.getenv("CASSANDRA_KEYSPACE", "sogood")
+    CASSANDRA_DATACENTER: str = os.getenv("CASSANDRA_DATACENTER", "datacenter1")
     
     # Configuration du serveur
     HOST: str = os.getenv("HOST", "0.0.0.0")
@@ -52,6 +48,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 # Instance globale des settings 
 settings = Settings() 

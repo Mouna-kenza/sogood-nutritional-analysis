@@ -1,145 +1,123 @@
-# 🚀 Démarrage Rapide - SoGood
+# 🚀 SoGood - Guide de démarrage rapide
 
-## ✅ Vérification de l'Installation
+## 📋 Prérequis
 
-### 1. Test Automatique
+- **Python 3.10+**
+- **Docker Desktop**
+- **Git**
+
+## ⚡ Démarrage rapide
+
+### 1. Cloner le projet
 ```bash
-# Test de l'installation complète
-python test_setup.py
+git clone <repository-url>
+cd sogood-nutritional-analysis
 ```
 
-### 2. Installation des Dépendances
+### 2. Démarrer Cassandra
 ```bash
-# Installer les dépendances Python
-pip install -r requirements.txt
+# Démarrer Cassandra avec Docker
+docker-compose up -d cassandra
 ```
 
-## 🐘 Configuration de la Base de Données
-
-### 1. Créer le fichier de configuration
+### 3. Initialiser la base de données
 ```bash
-# Copier le fichier d'exemple
-cp env.example .env
+# Initialiser Cassandra
+python scripts/init_cassandra.py
 ```
 
-### 2. Démarrer PostgreSQL
+### 4. Charger les données
 ```bash
-# Démarrer PostgreSQL avec Docker
-docker-compose up -d postgres
+# Charger les données (optionnel)
+python scripts/load_data.py --max-rows 1000
 ```
 
-## 📊 Chargement des Données
-
-### 1. Test avec un échantillon (recommandé)
+### 5. Démarrer l'API
 ```bash
-# Charger 1000 produits pour tester
-python scripts/load_data.py --max-rows 1000 --batch-size 100
+# Démarrer l'API FastAPI
+docker-compose up -d api
 ```
 
-### 2. Chargement complet (optionnel)
+### 6. Démarrer le frontend
 ```bash
-# Charger tous les produits (peut prendre du temps)
-python scripts/load_data.py --batch-size 2000
-```
-
-## 🚀 Démarrage de l'API
-
-### 1. Démarrer l'API FastAPI
-```bash
-# Démarrer le serveur
-python backend/main.py
-```
-
-### 2. Accéder à l'API
-- **API principale** : http://localhost:8000
-- **Documentation** : http://localhost:8000/docs
-- **Health check** : http://localhost:8000/health
-
-## 🔗 Intégration avec le Frontend
-
-### 1. Modifier le frontend Flask
-```python
-# Dans frontend/web_app/app.py, remplacer MOCK_PRODUCTS par :
-import requests
-
-API_BASE_URL = "http://localhost:8000/api/v1"
-
-@app.route('/search')
-def search():
-    response = requests.get(f"{API_BASE_URL}/products/search", params=request.args)
-    return response.json()
-```
-
-### 2. Démarrer le frontend
-```bash
+# Démarrer l'application web
 cd frontend/web_app
 python app.py
 ```
 
-## 🧪 Tests Rapides
+## 🌐 Accès aux services
 
-### 1. Test de l'API
+- **Frontend**: http://localhost:5000
+- **API Backend**: http://localhost:8000
+- **Documentation API**: http://localhost:8000/docs
+- **Cassandra**: localhost:9042
+
+## 🔧 Scripts de démarrage automatique
+
+### Linux/Mac
 ```bash
-# Test de santé
-curl http://localhost:8000/health
-
-# Test de recherche
-curl "http://localhost:8000/api/v1/products/search?q=nutella&page=1&page_size=5"
+./start.sh
 ```
 
-### 2. Test du frontend
-- Ouvrir http://localhost:5000
-- Rechercher "Nutella" ou "Evian"
-- Vérifier que les vraies données s'affichent
-
-## 🛠️ Dépannage
-
-### Erreur PostgreSQL
-```bash
-# Vérifier que Docker fonctionne
-docker ps
-
-# Redémarrer PostgreSQL
-docker-compose down
-docker-compose up -d postgres
-```
-
-### Erreur CSV
-```bash
-# Vérifier la présence du fichier
-ls -la notebooks/fr.openfoodfacts.org.products1.csv  # Fichier nettoyé avec 500k lignes
-```
-
-### Erreur Dépendances
-```bash
-# Réinstaller les dépendances
-pip install -r requirements.txt --force-reinstall
-```
-
-## 📋 Scripts de Démarrage Automatique
-
-### Windows (PowerShell)
+### Windows
 ```powershell
 .\start.ps1
 ```
 
-### Linux/Mac (Bash)
+## 📊 Vérification
+
+### Vérifier que Cassandra fonctionne
 ```bash
-chmod +x start.sh
-./start.sh
+docker-compose exec cassandra cqlsh -e "SELECT release_version FROM system.local;"
 ```
 
-## 🎯 Prochaines Étapes
+### Vérifier que l'API répond
+```bash
+curl http://localhost:8000/health
+```
 
-1. **Tester l'API** : http://localhost:8000/docs
-2. **Adapter le frontend** pour utiliser l'API
-3. **Charger plus de données** si nécessaire
-4. **Optimiser les performances** avec Redis
-5. **Déployer en production**
+### Vérifier le frontend
+Ouvrez http://localhost:5000 dans votre navigateur
 
-## 📞 Support
+## 🛠️ Dépannage
 
-Si vous rencontrez des problèmes :
-1. Vérifiez les logs dans la console
-2. Testez chaque composant séparément
-3. Consultez la documentation FastAPI : http://localhost:8000/docs 
+### Erreur Cassandra
+```bash
+# Redémarrer Cassandra
+docker-compose restart cassandra
+
+# Vérifier les logs
+docker-compose logs cassandra
+```
+
+### Erreur API
+```bash
+# Redémarrer l'API
+docker-compose restart api
+
+# Vérifier les logs
+docker-compose logs api
+```
+
+### Erreur de connexion
+```bash
+# Vérifier que tous les services sont démarrés
+docker-compose ps
+
+# Redémarrer tous les services
+docker-compose down
+docker-compose up -d
+```
+
+## 📚 Documentation complète
+
+- [README.md](README.md) - Documentation principale
+- [TEAM_SETUP.md](TEAM_SETUP.md) - Guide d'équipe
+- [API Documentation](http://localhost:8000/docs) - Documentation interactive de l'API
+
+## 🆘 Support
+
+En cas de problème :
+1. Vérifiez les logs : `docker-compose logs`
+2. Consultez la documentation
+3. Ouvrez une issue sur GitHub 

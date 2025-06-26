@@ -1,10 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_, func
+from fastapi import APIRouter, HTTPException, Query
+from cassandra.cqlengine.query import DoesNotExist
 from typing import Optional, List
 import logging
 
-from backend.database import get_db
 from backend.models.product import Product
 from backend.schemas.product import (
     ProductResponse, ProductSearchQuery, ProductSearchResponse,
@@ -22,6 +20,53 @@ router = APIRouter()
 nutriscore_service = NutriscoreService()
 search_service = SearchService()
 
+# Mapping des catégories françaises vers anglaises
+CATEGORY_MAPPING = {
+    'petit-déjeuners': ['breakfast', 'cereals', 'bread', 'pastries'],
+    'viandes et dérivés': ['meat', 'poultry', 'pork', 'beef', 'lamb'],
+    'produits laitiers': ['dairy', 'milk', 'cheese', 'yogurt'],
+    'boissons': ['beverages', 'drinks', 'juice', 'soda'],
+    'snacks': ['snacks', 'crackers', 'chips', 'cookies'],
+    'compléments alimentaires': ['supplements', 'vitamins'],
+    'aliments végétaux': ['plant-based', 'vegetarian', 'vegan'],
+    'condiments': ['condiments', 'sauces', 'spices']
+}
+
+def map_category_to_english(french_category: str) -> List[str]:
+    """Mappe les catégories françaises vers les catégories dans la base de données"""
+    mapping = {
+        "condiments": ["condiments", "sauces", "groceries"],
+        "épices": ["épices", "herbes", "assaisonnements"],
+        "viandes": ["viandes", "viandes et dérivés", "poulet", "volailles", "charcuteries", "saucisses"],
+        "céréales": ["céréales", "grains", "pain", "pâtes"],
+        "légumes": ["légumes", "légumineuses"],
+        "fruits": ["fruits", "baies"],
+        "produits laitiers": ["produits laitiers", "lait", "fromages", "produits fermentés"],
+        "boissons": ["boissons", "boissons gazeuses", "sodas", "carbonated drinks"],
+        "snacks": ["snacks", "chips", "crackers"],
+        "desserts": ["desserts", "bonbons", "chocolat", "dessert-vegetal"],
+        "conserves": ["conserves", "préservés"],
+        "fruits secs": ["noix", "fruits secs"],
+        "poissons": ["poissons", "fruits de mer"],
+        "œufs": ["œufs"],
+        "huiles": ["huiles", "graisses"],
+        "soupes": ["soupes", "bouillons"],
+        "pâtes": ["pâtes", "noodles"],
+        "riz": ["riz"],
+        "farines": ["farines"],
+        "sucre": ["sucre", "édulcorants"],
+        "plats préparés": ["plats préparés", "pizzas", "tartes salées", "quiches"]
+    }
+    
+    french_lower = french_category.lower().strip()
+    
+    # Retourner les catégories mappées si trouvées
+    if french_lower in mapping:
+        return mapping[french_lower]
+    
+    # Si pas trouvé, retourner la catégorie originale
+    return [french_lower]
+
 @router.get("/search", response_model=ProductSearchResponse)
 def search_products(
     q: Optional[str] = Query(None, description="Terme de recherche"),
@@ -30,83 +75,84 @@ def search_products(
     nova_group: Optional[int] = Query(None, description="Filtrer par groupe NOVA"),
     complete_data: Optional[str] = Query("false", description="Filtrer les produits avec données complètes (true/false)"),
     page: int = Query(1, ge=1, description="Numéro de page"),
-    page_size: int = Query(20, ge=1, le=100, description="Taille de page"),
-    db: Session = Depends(get_db)
+    page_size: int = Query(20, ge=1, le=100, description="Taille de page")
 ):
     """
     Recherche de produits avec filtres - Compatible avec le frontend Flask
     """
     try:
-        query = db.query(Product)
-        
         # Debug: afficher le paramètre
         logger.info(f"Paramètre complete_data: {complete_data}")
-        
-        # Filtre pour les données complètes - DÉSACTIVÉ
-        # if complete_data == "true":
-        #     logger.info("Application du filtre données complètes")
-        #     query = query.filter(
-        #         Product.product_name.isnot(None),
-        #         Product.product_name != '',
-        #         Product.brands.isnot(None),
-        #         Product.brands != '',
-        #         Product.nutriscore_grade.isnot(None),
-        #         Product.nutriscore_grade != '',
-        #         Product.nutriscore_grade != 'N/A',
-        #         Product.energy_kcal_100g.isnot(None),
-        #         Product.energy_kcal_100g > 0,
-        #         Product.fat_100g.isnot(None),
-        #         Product.fat_100g > 0,
-        #         Product.sugars_100g.isnot(None),
-        #         Product.sugars_100g > 0,
-        #         Product.salt_100g.isnot(None),
-        #         Product.salt_100g > 0,
-        #         Product.proteins_100g.isnot(None),
-        #         Product.proteins_100g > 0
-        #     )
-        #     logger.info(f"Nombre de produits après filtre: {query.count()}")
-        # else:
         logger.info("Aucun filtre de données complètes appliqué - Tous les produits affichés")
         
-        if q:
-            search_term = f"%{q.lower()}%"
-            query = query.filter(
-                or_(
-                    func.lower(Product.product_name).like(search_term),
-                    func.lower(Product.brands).like(search_term)
-                )
-            )
-        if category:
-            query = query.filter(
-                or_(
-                    func.lower(Product.categories).like(f"{category.lower()}%"),
-                    func.lower(Product.categories).like(f"%{category.lower()}%")
-                )
-            )
-        if nutri_score:
-            query = query.filter(Product.nutriscore_grade == nutri_score.upper())
-        if nova_group:
-            query = query.filter(Product.nova_group == nova_group)
+        # Récupérer tous les produits (Cassandra ne supporte pas les requêtes complexes comme SQLAlchemy)
+        all_products = list(Product.objects.all())
+        
+        # Filtrer en mémoire
+        filtered_products = []
+        for product in all_products:
+            # Exclure les produits sans catégorie ou avec catégorie "Non classé"
+            if not product.categories or product.categories.strip() == "" or "non classé" in product.categories.lower():
+                continue
+                
+            # Filtre de recherche textuelle
+            if q:
+                search_term = q.lower()
+                if not (search_term in (product.product_name or '').lower() or 
+                       search_term in (product.brands or '').lower()):
+                    continue
             
-        total = query.count()
-        offset = (page - 1) * page_size
-        products = query.offset(offset).limit(page_size).all()
+            # Filtre par catégorie
+            if category and product.categories:
+                # Utiliser le mapping français-anglais
+                mapped_categories = map_category_to_english(category)
+                product_categories_lower = product.categories.lower()
+                
+                # Vérifier si une des catégories mappées correspond
+                category_matches = False
+                for mapped_cat in mapped_categories:
+                    if mapped_cat.lower() in product_categories_lower:
+                        category_matches = True
+                        break
+                
+                # Si pas de correspondance directe, vérifier les correspondances partielles
+                if not category_matches:
+                    product_categories_list = [cat.strip().lower() for cat in product.categories.split(',')]
+                    if not any(any(mapped_cat.lower() in cat or cat in mapped_cat.lower() for mapped_cat in mapped_categories) 
+                              for cat in product_categories_list):
+                        continue
+            
+            # Filtre par Nutri-Score
+            if nutri_score and product.nutriscore_grade != nutri_score.upper():
+                continue
+            
+            # Filtre par groupe NOVA
+            if nova_group and product.nova_group != nova_group:
+                continue
+            
+            filtered_products.append(product)
+        
+        # Pagination
+        total = len(filtered_products)
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        products_page = filtered_products[start_idx:end_idx]
         
         products_data = []
-        for product in products:
+        for product in products_page:
             controversies = []
-            if product.sugars_100g and product.sugars_100g > 22.5:
+            if product.sugars_100g and float(product.sugars_100g) > 22.5:
                 controversies.append("Très riche en sucre")
-            if product.saturated_fat_100g and product.saturated_fat_100g > 5:
+            if product.saturated_fat_100g and float(product.saturated_fat_100g) > 5:
                 controversies.append("Riche en graisses saturées")
-            if product.salt_100g and product.salt_100g > 1.5:
+            if product.salt_100g and float(product.salt_100g) > 1.5:
                 controversies.append("Riche en sel")
                 
             products_data.append(ProductSearchItem(
-                id=str(product.id),
+                id=product.code,
                 name=product.product_name or 'Produit sans nom',
                 brand=product.brands or 'Marque inconnue',
-                category=(product.categories.split(',')[0] if product.categories else 'Non classé'),
+                category=(product.categories.split(',')[0].strip() if product.categories else 'Non classé'),
                 nutri_score=product.nutriscore_grade or 'N/A',
                 nova_score=product.nova_group or 0,
                 sugar_100g=float(product.sugars_100g) if product.sugars_100g else 0,
@@ -128,31 +174,34 @@ def search_products(
         logger.error(f"Erreur recherche produits: {e}")
         raise HTTPException(status_code=500, detail="Erreur lors de la recherche")
 
-@router.get("/{product_id}", response_model=dict)
-async def get_product(product_id: int, db: Session = Depends(get_db)):
+@router.get("/{product_code}", response_model=dict)
+async def get_product(product_code: str):
     """
-    Récupère un produit par son ID - Compatible avec le frontend Flask
+    Récupère un produit par son code - Compatible avec le frontend Flask
     """
     try:
-        product = db.query(Product).filter(Product.id == product_id).first()
+        # Chercher le produit par code
+        products = list(Product.objects.filter(code=product_code).limit(1))
         
-        if not product:
+        if not products:
             raise HTTPException(status_code=404, detail="Produit non trouvé")
+        
+        product = products[0]
         
         # Déterminer les controverses
         controversies = []
-        if product.sugars_100g and product.sugars_100g > 22.5:
+        if product.sugars_100g and float(product.sugars_100g) > 22.5:
             controversies.append("Très riche en sucre")
-        if product.saturated_fat_100g and product.saturated_fat_100g > 5:
+        if product.saturated_fat_100g and float(product.saturated_fat_100g) > 5:
             controversies.append("Riche en graisses saturées")
-        if product.salt_100g and product.salt_100g > 1.5:
+        if product.salt_100g and float(product.salt_100g) > 1.5:
             controversies.append("Riche en sel")
         if product.additives and len(product.additives.split(',')) > 5:
             controversies.append("Contient de nombreux additifs")
         
         # Format détaillé pour la page produit
         product_data = {
-            'id': str(product.id),
+            'id': product.code,
             'code': product.code,
             'name': product.product_name or 'Produit sans nom',
             'brand': product.brands or 'Marque inconnue',
@@ -189,7 +238,7 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erreur récupération produit {product_id}: {e}")
+        logger.error(f"Erreur récupération produit {product_code}: {e}")
         raise HTTPException(status_code=500, detail="Erreur lors de la récupération du produit")
 
 @router.post("/calculate-nutriscore", response_model=NutriscoreCalculationResponse)
@@ -198,145 +247,94 @@ async def calculate_nutriscore(request: NutriscoreCalculationRequest):
     Calcule le Nutri-Score pour des valeurs nutritionnelles données
     """
     try:
-        result = nutriscore_service.calculate_nutriscore(
+        score = nutriscore_service.calculate_nutriscore(
             energy_100g=request.energy_100g,
-            fat_100g=0,  # Non utilisé dans le calcul
+            fat_100g=request.fat_100g,
             saturated_fat_100g=request.saturated_fat_100g,
-            carbohydrates_100g=0,  # Non utilisé directement
+            carbohydrates_100g=0,  # Non utilisé dans le calcul Nutri-Score
             sugars_100g=request.sugars_100g,
-            fiber_100g=request.fiber_100g,
-            proteins_100g=request.proteins_100g,
             salt_100g=request.salt_100g,
-            fruits_vegetables_nuts_percent=request.fruits_vegetables_nuts_percent
+            fiber_100g=request.fiber_100g,
+            proteins_100g=request.proteins_100g
         )
         
         return NutriscoreCalculationResponse(
-            nutriscore_grade=result['nutriscore_grade'],
-            nutriscore_score=result['nutriscore_score'],
-            details=result['details']
+            nutriscore_grade=score['grade'],
+            nutriscore_score=score['score'],
+            details=score['details']
         )
-        
     except Exception as e:
         logger.error(f"Erreur calcul Nutri-Score: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail="Erreur lors du calcul du Nutri-Score")
 
 @router.get("/stats/database", response_model=DatabaseStats)
-async def get_database_stats(db: Session = Depends(get_db)):
+async def get_database_stats():
     """
     Statistiques de la base de données
     """
     try:
-        # Comptes de base
-        total_products = db.query(Product).count()
-        products_with_nutriscore = db.query(Product).filter(Product.nutriscore_grade.isnot(None)).count()
-        products_with_nutrition = db.query(Product).filter(Product.energy_100g.isnot(None)).count()
+        # Compter tous les produits
+        total_products = Product.objects.count()
         
-        # Distribution Nutri-Score
-        nutriscore_dist = {}
+        # Compter par Nutri-Score
+        nutriscore_stats = {}
         for grade in ['A', 'B', 'C', 'D', 'E']:
-            count = db.query(Product).filter(Product.nutriscore_grade == grade).count()
-            nutriscore_dist[grade] = count
+            count = Product.objects.filter(nutriscore_grade=grade).count()
+            nutriscore_stats[grade] = count
         
-        # Distribution NOVA
-        nova_dist = {}
+        # Compter par groupe NOVA
+        nova_stats = {}
         for group in [1, 2, 3, 4]:
-            count = db.query(Product).filter(Product.nova_group == group).count()
-            nova_dist[str(group)] = count
-        
-        # Top marques
-        top_brands_query = db.query(
-            Product.brands, 
-            func.count(Product.id).label('count')
-        ).filter(
-            Product.brands.isnot(None)
-        ).group_by(Product.brands).order_by(func.count(Product.id).desc()).limit(10)
-        
-        top_brands = [{'name': brand, 'count': count} for brand, count in top_brands_query.all()]
-        
-        # Top catégories (première catégorie seulement)
-        top_categories_query = db.query(
-            func.split_part(Product.categories, ',', 1).label('category'),
-            func.count(Product.id).label('count')
-        ).filter(
-            Product.categories.isnot(None)
-        ).group_by(func.split_part(Product.categories, ',', 1)).order_by(func.count(Product.id).desc()).limit(10)
-        
-        top_categories = [{'name': category, 'count': count} for category, count in top_categories_query.all()]
+            count = Product.objects.filter(nova_group=group).count()
+            nova_stats[f"NOVA {group}"] = count
         
         return DatabaseStats(
             total_products=total_products,
-            products_with_nutriscore=products_with_nutriscore,
-            products_with_nutrition=products_with_nutrition,
-            nutriscore_distribution=nutriscore_dist,
-            nova_distribution=nova_dist,
-            top_brands=top_brands,
-            top_categories=top_categories
+            products_with_nutriscore=sum(nutriscore_stats.values()),
+            products_with_nutrition=total_products,  # Simplification
+            nutriscore_distribution=nutriscore_stats,
+            nova_distribution=nova_stats,
+            top_brands=[],  # Simplification pour Cassandra
+            top_categories=[]  # Simplification pour Cassandra
         )
-        
     except Exception as e:
-        logger.error(f"Erreur statistiques: {e}")
-        raise HTTPException(status_code=500, detail="Erreur lors du calcul des statistiques")
+        logger.error(f"Erreur statistiques base de données: {e}")
+        raise HTTPException(status_code=500, detail="Erreur lors de la récupération des statistiques")
 
 @router.get("", response_model=ProductSearchResponse)
 def list_products(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    complete_data: Optional[str] = Query("false", description="Filtrer les produits avec données complètes (true/false)"),
-    db: Session = Depends(get_db)
+    complete_data: Optional[str] = Query("false", description="Filtrer les produits avec données complètes (true/false)")
 ):
     """
     Liste tous les produits avec pagination
     """
     try:
-        db_query = db.query(Product)
+        # Récupérer tous les produits
+        all_products = list(Product.objects.all())
         
-        # Debug: afficher le paramètre
-        logger.info(f"Paramètre complete_data: {complete_data}")
-        
-        # Filtre pour les données complètes - DÉSACTIVÉ
-        # if complete_data == "true":
-        #     logger.info("Application du filtre données complètes")
-        #     db_query = db_query.filter(
-        #         Product.product_name.isnot(None),
-        #         Product.product_name != '',
-        #         Product.brands.isnot(None),
-        #         Product.brands != '',
-        #         Product.nutriscore_grade.isnot(None),
-        #         Product.nutriscore_grade != '',
-        #         Product.nutriscore_grade != 'N/A',
-        #         Product.energy_kcal_100g.isnot(None),
-        #         Product.energy_kcal_100g > 0,
-        #         Product.fat_100g.isnot(None),
-        #         Product.fat_100g > 0,
-        #         Product.sugars_100g.isnot(None),
-        #         Product.sugars_100g > 0,
-        #         Product.salt_100g.isnot(None),
-        #         Product.salt_100g > 0,
-        #         Product.proteins_100g.isnot(None),
-        #         Product.proteins_100g > 0
-        #     )
-        #     logger.info(f"Nombre de produits après filtre: {db_query.count()}")
-        # else:
-        logger.info("Aucun filtre de données complètes appliqué - Tous les produits affichés")
-        
-        total = db_query.count()
-        offset = (page - 1) * page_size
-        products = db_query.offset(offset).limit(page_size).all()
+        # Pagination
+        total = len(all_products)
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        products_page = all_products[start_idx:end_idx]
         
         products_data = []
-        for product in products:
+        for product in products_page:
             controversies = []
-            if product.sugars_100g and product.sugars_100g > 22.5:
+            if product.sugars_100g and float(product.sugars_100g) > 22.5:
                 controversies.append("Très riche en sucre")
-            if product.saturated_fat_100g and product.saturated_fat_100g > 5:
+            if product.saturated_fat_100g and float(product.saturated_fat_100g) > 5:
                 controversies.append("Riche en graisses saturées")
-            if product.salt_100g and product.salt_100g > 1.5:
+            if product.salt_100g and float(product.salt_100g) > 1.5:
                 controversies.append("Riche en sel")
+                
             products_data.append(ProductSearchItem(
-                id=str(product.id),
+                id=product.code,
                 name=product.product_name or 'Produit sans nom',
                 brand=product.brands or 'Marque inconnue',
-                category=(product.categories.split(',')[0] if product.categories else 'Non classé'),
+                category=(product.categories.split(',')[0].strip() if product.categories else 'Non classé'),
                 nutri_score=product.nutriscore_grade or 'N/A',
                 nova_score=product.nova_group or 0,
                 sugar_100g=float(product.sugars_100g) if product.sugars_100g else 0,
@@ -345,6 +343,7 @@ def list_products(
                 controversies=controversies,
                 image_url=product.get_best_image_url()
             ))
+        
         total_pages = (total + page_size - 1) // page_size
         return ProductSearchResponse(
             products=products_data,

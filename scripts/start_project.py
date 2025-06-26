@@ -1,93 +1,119 @@
 #!/usr/bin/env python3
 """
-Script de démarrage pour SoGood
+Script de démarrage du projet SoGood
+Vérifie l'installation et lance les services
 """
-import subprocess
-import sys
+
 import os
+import sys
+import subprocess
 import logging
 from pathlib import Path
 
+# Configuration des logs
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def check_dependencies():
-    """Vérifie que les dépendances sont installées"""
+def check_python_version():
+    """Vérifie la version de Python"""
+    if sys.version_info < (3, 10):
+        logger.error("❌ Python 3.10+ requis")
+        return False
+    logger.info(f"✅ Python {sys.version_info.major}.{sys.version_info.minor}")
+    return True
+
+def check_docker():
+    """Vérifie que Docker est installé"""
     try:
-        import fastapi
-        import sqlalchemy
-        import pandas
-        logger.info("✅ Dépendances Python OK")
+        result = subprocess.run(['docker', '--version'], 
+                              capture_output=True, text=True, check=True)
+        logger.info(f"✅ Docker: {result.stdout.strip()}")
         return True
-    except ImportError as e:
-        logger.error(f"❌ Dépendance manquante: {e}")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        logger.error("❌ Docker non trouvé")
         return False
 
-def check_database():
-    """Vérifie la connexion à la base de données"""
+def check_docker_compose():
+    """Vérifie que Docker Compose est installé"""
     try:
-        from backend.database import check_database_connection
-        if check_database_connection():
-            logger.info("✅ Base de données connectée")
-            return True
+        result = subprocess.run(['docker-compose', '--version'], 
+                              capture_output=True, text=True, check=True)
+        logger.info(f"✅ Docker Compose: {result.stdout.strip()}")
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        logger.error("❌ Docker Compose non trouvé")
+        return False
+
+def check_env_file():
+    """Vérifie et crée le fichier .env si nécessaire"""
+    if not os.path.exists('.env'):
+        if os.path.exists('env.example'):
+            import shutil
+            shutil.copy('env.example', '.env')
+            logger.info("✅ Fichier .env créé depuis env.example")
         else:
-            logger.error("❌ Impossible de se connecter à la base de données")
+            logger.error("❌ Fichier env.example non trouvé")
             return False
-    except Exception as e:
-        logger.error(f"❌ Erreur base de données: {e}")
-        return False
+    else:
+        logger.info("✅ Fichier .env existe")
+    return True
 
-def load_sample_data():
-    """Charge un échantillon de données pour tester"""
-    try:
-        logger.info("📊 Chargement d'un échantillon de données...")
-        subprocess.run([
-            sys.executable, "scripts/load_data.py", 
-            "--max-rows", "1000"
-        ], check=True)
-        logger.info("✅ Données d'exemple chargées")
-        return True
-    except subprocess.CalledProcessError as e:
-        logger.error(f"❌ Erreur chargement données: {e}")
+def check_requirements():
+    """Vérifie les dépendances Python"""
+    dependencies = [
+        ('fastapi', 'fastapi'),
+        ('uvicorn', 'uvicorn'),
+        ('cassandra-driver', 'cassandra'),
+        ('cqlengine', 'cqlengine'),
+        ('pydantic', 'pydantic'),
+        ('pandas', 'pandas')
+    ]
+    
+    missing = []
+    for package_name, import_name in dependencies:
+        try:
+            __import__(import_name)
+            logger.info(f"✅ {package_name}")
+        except ImportError:
+            missing.append(package_name)
+            logger.error(f"❌ {package_name} manquant")
+    
+    if missing:
+        logger.info("💡 Lancez: pip install -r requirements.txt")
         return False
-
-def start_api():
-    """Démarre l'API FastAPI"""
-    try:
-        logger.info("🚀 Démarrage de l'API...")
-        subprocess.run([
-            sys.executable, "-m", "uvicorn", 
-            "backend.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"
-        ], check=True)
-    except KeyboardInterrupt:
-        logger.info("🛑 Arrêt de l'API")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"❌ Erreur démarrage API: {e}")
+    
+    logger.info("✅ Toutes les dépendances Python sont installées")
+    return True
 
 def main():
-    """Point d'entrée principal"""
-    logger.info("🥗 Démarrage de SoGood - Analyse Nutritionnelle")
+    """Fonction principale"""
+    logger.info("🔍 Vérification de l'installation SoGood")
+    logger.info("=" * 50)
     
-    # Vérifications préliminaires
-    if not check_dependencies():
-        logger.error("❌ Vérifiez l'installation des dépendances: pip install -r requirements.txt")
+    checks = [
+        check_python_version(),
+        check_docker(),
+        check_docker_compose(),
+        check_env_file(),
+        check_requirements()
+    ]
+    
+    if all(checks):
+        logger.info("🎉 Installation OK !")
+        logger.info("")
+        logger.info("🚀 Pour démarrer le projet:")
+        logger.info("   Linux/Mac: ./start.sh")
+        logger.info("   Windows: .\\start.ps1")
+        logger.info("")
+        logger.info("💡 Ou manuellement:")
+        logger.info("   1. docker-compose up -d cassandra")
+        logger.info("   2. python scripts/init_cassandra.py")
+        logger.info("   3. docker-compose up -d api")
+        logger.info("   4. cd frontend/web_app && python app.py")
+        return 0
+    else:
+        logger.error("❌ Installation incomplète")
         return 1
-    
-    if not check_database():
-        logger.error("❌ Vérifiez la configuration de la base de données")
-        logger.info("💡 Lancez: docker-compose up -d postgres")
-        return 1
-    
-    # Chargement des données si nécessaire
-    answer = input("📊 Charger des données d'exemple? (y/N): ")
-    if answer.lower() in ['y', 'yes', 'o', 'oui']:
-        if not load_sample_data():
-            logger.warning("⚠️ Échec du chargement des données, mais on continue...")
-    
-    # Démarrage de l'API
-    start_api()
-    
-    return 0
 
 if __name__ == "__main__":
     sys.exit(main()) 

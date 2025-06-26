@@ -3,291 +3,312 @@
 {% block content %}
 <div class="hero-section">
     <div class="container text-center">
-        <h1 class="display-4 mb-4">🥗 Bienvenue sur SoGood</h1>
-        <p class="lead">Découvrez la qualité nutritionnelle de vos produits alimentaires préférés</p>
-        <p class="text-muted">Base de données OpenFoodFacts - Données en temps réel</p>
-        <div class="alert alert-info d-inline-block">
-            <i class="fas fa-check-circle"></i> 
-            <strong>Mode d'affichage :</strong> Tous les produits sont affichés (filtre de données complètes désactivé)
+        <div class="hero-content">
+            <h1 class="display-4 mb-4">
+                <i class="fas fa-leaf me-3"></i>Bienvenue sur SoGood
+            </h1>
+            <p class="lead mb-4">Découvrez la qualité nutritionnelle de vos produits alimentaires préférés</p>
+            <p class="text-light mb-4">Base de données OpenFoodFacts - Données en temps réel</p>
+            
+            <div class="hero-stats row justify-content-center mb-4">
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="stat-item">
+                        <i class="fas fa-database fa-2x mb-2"></i>
+                        <div class="stat-number">{{ total_products or "1000+" }}</div>
+                        <div class="stat-label">Produits</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="stat-item">
+                        <i class="fas fa-chart-line fa-2x mb-2"></i>
+                        <div class="stat-number">A-E</div>
+                        <div class="stat-label">Nutri-Score</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="stat-item">
+                        <i class="fas fa-tags fa-2x mb-2"></i>
+                        <div class="stat-number">{{ categories|length or "50+" }}</div>
+                        <div class="stat-label">Catégories</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6 mb-3">
+                    <div class="stat-item">
+                        <i class="fas fa-clock fa-2x mb-2"></i>
+                        <div class="stat-number">24/7</div>
+                        <div class="stat-label">Disponible</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="alert alert-light d-inline-block">
+                <i class="fas fa-check-circle text-success me-2"></i> 
+                <strong>Mode d'affichage :</strong> Tous les produits sont affichés
+            </div>
         </div>
     </div>
 </div>
 
 <div class="container my-5">
-    <!-- Barre de recherche -->
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow-lg">
-                <div class="card-body p-4">
-                    <h3 class="text-center mb-4">🔍 Rechercher un Produit</h3>
-                    
-                    <div class="row">
-                        <div class="col-md-8">
-                            <input type="text" id="searchInput" class="form-control form-control-lg" 
-                                   placeholder="Tapez le nom d'un produit... (ex: Nutella, Coca-Cola)">
-                        </div>
-                        <div class="col-md-4">
-                            <button onclick="searchProducts()" class="btn btn-success btn-lg w-100">
-                                <i class="fas fa-search"></i> Rechercher
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="row mt-3">
-                        <div class="col-md-6">
-                            <select id="categoryFilter" class="form-select">
-                                <option value="">🏷️ Toutes catégories</option>
-                                <option value="Plant-based foods and beverages">🥗 Aliments végétaux (38)</option>
-                                <option value="Beverages and beverages preparations">🥤 Boissons (35)</option>
-                                <option value="Snacks">🍿 Snacks (18)</option>
-                                <option value="Dietary supplements">💊 Compléments alimentaires (19)</option>
-                                <option value="Petit-déjeuners">🌅 Petit-déjeuners (12)</option>
-                                <option value="Viandes et dérivés">🥩 Viandes (8)</option>
-                                <option value="Produits laitiers">🥛 Produits laitiers (5)</option>
-                                <option value="Breakfasts">🍳 Breakfasts (5)</option>
-                                <option value="Aliments et boissons à base de végétaux">🌱 Végétaux français (20)</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <select id="nutriFilter" class="form-select">
-                                <option value="">⭐ Tous Nutri-Scores</option>
-                                <option value="A">A - Excellent</option>
-                                <option value="B">B - Bon</option>
-                                <option value="C">C - Moyen</option>
-                                <option value="D">D - Médiocre</option>
-                                <option value="E">E - Mauvais</option>
-                            </select>
-                        </div>
+    <!-- Filtres -->
+    <form method="GET" action="/search">
+        <div class="filters mb-4">
+            <div class="row align-items-end">
+                <div class="col-md-4 mb-3">
+                    <label for="categoryFilter" class="form-label">
+                        <i class="fas fa-tag me-2"></i>Catégorie
+                    </label>
+                    <select class="form-select" id="categoryFilter" name="category">
+                        <option value="">Toutes les catégories</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat }}" {% if cat == category %}selected{% endif %}>
+                            {{ cat }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="searchInput" class="form-label">
+                        <i class="fas fa-search me-2"></i>Recherche
+                    </label>
+                    <input type="text" class="form-control" id="searchInput" name="q" 
+                           value="{{ query }}" placeholder="Nom du produit ou marque...">
+                </div>
+                <div class="col-md-4 mb-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary flex-fill">
+                        <i class="fas fa-search me-2"></i> Rechercher
+                    </button>
+                    <a href="/" class="btn btn-outline-secondary">
+                        <i class="fas fa-times"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+    
+    <!-- Résultats -->
+    <div class="results-section">
+        {% if error %}
+        <div class="alert alert-danger" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i> {{ error }}
+        </div>
+        {% endif %}
+        
+        {% if products %}
+        <div class="results-header mb-4">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h4 class="mb-0">
+                        <i class="fas fa-box me-2"></i>Produits trouvés 
+                        <span class="badge bg-primary ms-2">{{ total_products }}</span>
+                    </h4>
+                    {% if category %}
+                    <p class="text-muted mb-0 mt-2">
+                        <i class="fas fa-filter me-1"></i>Filtré par catégorie: <strong>{{ category }}</strong>
+                    </p>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-th-large me-1"></i>Grille
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-list me-1"></i>Liste
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-    
-    <!-- Résultats -->
-    <div id="products-container" class="row">
-        <!-- Les produits seront chargés ici via JavaScript -->
-    </div>
-    
-    <!-- Message quand aucun produit complet n'est trouvé -->
-    <div id="no-products-message" class="alert alert-info mt-4" style="display: none;">
-        <h4 class="alert-heading">🔍 Aucun produit complet trouvé</h4>
-        <p>Le filtre de données complètes est actif. Aucun produit dans la base de données ne contient toutes les informations nutritionnelles requises.</p>
-        <hr>
-        <p class="mb-0">Tu peux essayer de désactiver le filtre ou chercher un produit spécifique.</p>
-    </div>
-    
-    <!-- Pagination -->
-    <div id="pagination" class="d-flex justify-content-center mt-4" style="display: none;">
-        <nav aria-label="Navigation des produits">
-            <ul class="pagination">
+        
+        <div class="row" id="productsContainer">
+            {% for product in products %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100 shadow-sm product-card">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h6 class="card-title mb-0 flex-grow-1 me-3">{{ product.name[:50] }}{% if product.name|length > 50 %}...{% endif %}</h6>
+                            <div class="nutri-score-badge nutri-score-{{ product.nutri_score.lower() }}" title="Nutri-Score {{ product.nutri_score }}">
+                                {{ product.nutri_score }}
+                            </div>
+                        </div>
+                        
+                        <div class="product-meta mb-3">
+                            <div class="meta-item mb-2">
+                                <i class="fas fa-tag text-success"></i>
+                                <span class="ms-2">{{ product.category or "Non classé" }}</span>
+                            </div>
+                            <div class="meta-item">
+                                <i class="fas fa-building text-info"></i>
+                                <span class="ms-2">{{ product.brand or "Marque inconnue" }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="nutrition-info mt-auto">
+                            <div class="row text-center g-2">
+                                <div class="col-4">
+                                    <div class="nutrition-item">
+                                        <div class="nutrition-value">{{ "%.0f"|format(product.energy_100g or 0) }}</div>
+                                        <div class="nutrition-label">kcal/100g</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="nutrition-item">
+                                        <div class="nutrition-value">{{ "%.1f"|format(product.sugar_100g or 0) }}g</div>
+                                        <div class="nutrition-label">Sucre</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="nutrition-item">
+                                        <div class="nutrition-value">{{ "%.1f"|format(product.salt_100g or 0) }}g</div>
+                                        <div class="nutrition-label">Sel</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer bg-transparent">
+                        <a href="/product/{{ product.id }}" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-info-circle me-2"></i> Voir détails
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <nav aria-label="Pagination des produits" class="mt-5">
+            <ul class="pagination justify-content-center">
+                {% if current_page > 1 %}
                 <li class="page-item">
-                    <button class="page-link" id="prev-page" onclick="changePage(-1)">Précédent</button>
+                    <a class="page-link" href="?q={{ query }}&category={{ category }}&page={{ current_page - 1 }}">
+                        <i class="fas fa-chevron-left me-1"></i> Précédent
+                    </a>
                 </li>
+                {% endif %}
+                
+                {% for page_num in range(start_page, end_page + 1) %}
+                <li class="page-item {% if page_num == current_page %}active{% endif %}">
+                    <a class="page-link" href="?q={{ query }}&category={{ category }}&page={{ page_num }}">
+                        {{ page_num }}
+                    </a>
+                </li>
+                {% endfor %}
+                
+                {% if current_page < total_pages %}
                 <li class="page-item">
-                    <span class="page-link" id="page-info">Page 1</span>
+                    <a class="page-link" href="?q={{ query }}&category={{ category }}&page={{ current_page + 1 }}">
+                        Suivant <i class="fas fa-chevron-right ms-1"></i>
+                    </a>
                 </li>
-                <li class="page-item">
-                    <button class="page-link" id="next-page" onclick="changePage(1)">Suivant</button>
-                </li>
+                {% endif %}
             </ul>
         </nav>
+        {% endif %}
+        
+        {% else %}
+        <div class="text-center py-5">
+            <div class="empty-state">
+                <i class="fas fa-search fa-4x text-muted mb-4"></i>
+                <h4 class="text-muted mb-3">Aucun produit trouvé</h4>
+                <p class="text-muted mb-4">Essayez de modifier vos critères de recherche</p>
+                <a href="/" class="btn btn-primary">
+                    <i class="fas fa-home me-2"></i>Retour à l'accueil
+                </a>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 
-<script>
-let currentPage = 1;
-let totalPages = 1;
-
-function searchProducts() {
-    const query = document.getElementById('searchInput').value;
-    const category = document.getElementById('categoryFilter').value;
-    const nutriScore = document.getElementById('nutriFilter').value;
-    const resultsDiv = document.getElementById('products-container');
-    
-    resultsDiv.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Chargement...</span></div></div>';
-    
-    const params = new URLSearchParams({
-        q: query,
-        page: currentPage
-    });
-    
-    if (category) params.append('category', category);
-    if (nutriScore) params.append('nutri_score', nutriScore);
-    
-    fetch(`/search?${params}`)
-        .then(response => response.json())
-        .then(data => {
-            displayResults(data.products);
-            updatePagination(data.total, data.page, data.total_pages);
-        })
-        .catch(error => {
-            console.error('Erreur:', error);
-            resultsDiv.innerHTML = '<div class="alert alert-danger">Erreur lors de la recherche</div>';
-        });
-}
-
-function displayResults(products) {
-    const resultsDiv = document.getElementById('products-container');
-    const noProductsMessage = document.getElementById('no-products-message');
-    
-    if (!products || products.length === 0) {
-        resultsDiv.innerHTML = '';
-        noProductsMessage.style.display = 'block';
-        return;
-    }
-    
-    noProductsMessage.style.display = 'none';
-    resultsDiv.innerHTML = products.map(product => `
-        <div class="col-md-6 col-lg-4 mb-4">
-            <div class="card h-100 product-card">
-                <div class="card-img-top-container">
-                    <img src="${product.image_url || '/static/images/placeholder.svg'}" 
-                         class="card-img-top product-image" 
-                         alt="${product.name}"
-                         onerror="this.src='/static/images/placeholder.svg'">
-                </div>
-                <div class="card-body">
-                    <h5 class="card-title">${product.name}</h5>
-                    <p class="card-text"><strong>Marque:</strong> ${product.brand}</p>
-                    <p class="card-text"><strong>Catégorie:</strong> ${product.category}</p>
-                    <div class="nutrition-badges">
-                        <span class="badge ${getNutriScoreClass(product.nutri_score)}">Nutri-Score: ${product.nutri_score}</span>
-                        <span class="badge ${getNovaClass(product.nova_score)}">NOVA: ${product.nova_score}</span>
-                    </div>
-                    <div class="nutrition-values mt-2">
-                        <small class="text-muted">
-                            Énergie: ${product.energy_100g} kcal | 
-                            Sucres: ${product.sugar_100g}g | 
-                            Sel: ${product.salt_100g}g
-                        </small>
-                    </div>
-                </div>
-                <div class="card-footer">
-                    <a href="/product/${product.id}" class="btn btn-primary btn-sm">Voir détails</a>
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
-
-// Recherche automatique au chargement
-window.onload = () => searchProducts();
-
-// Recherche en temps réel (optionnel)
-document.getElementById('searchInput').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        searchProducts();
-    }
-});
-
-// Filtres automatiques
-document.getElementById('categoryFilter').addEventListener('change', () => searchProducts());
-document.getElementById('nutriFilter').addEventListener('change', () => searchProducts());
-
-function getNutriScoreClass(score) {
-    if (!score) return '';
-    return 'nutriscore-' + score.toUpperCase();
-}
-function getNovaClass(nova) {
-    if (!nova) return '';
-    return 'nova-' + nova;
-}
-
-function changePage(delta) {
-    const newPage = currentPage + delta;
-    if (newPage >= 1 && newPage <= totalPages) {
-        currentPage = newPage;
-        searchProducts();
-    }
-}
-
-function updatePagination(total, page, totalPages) {
-    const pagination = document.getElementById('pagination');
-    const pageInfo = document.getElementById('page-info');
-    const prevBtn = document.getElementById('prev-page');
-    const nextBtn = document.getElementById('next-page');
-    
-    if (totalPages > 1) {
-        pagination.style.display = 'flex';
-        pageInfo.textContent = `Page ${page} sur ${totalPages} (${total} produits)`;
-        prevBtn.disabled = page <= 1;
-        nextBtn.disabled = page >= totalPages;
-    } else {
-        pagination.style.display = 'none';
-    }
-}
-</script>
-
 <style>
-/* Suppression des animations problématiques */
-.hover-card {
-    /* transition: transform 0.2s; */
-}
-.hover-card:hover {
-    /* transform: translateY(-5px); */
+/* Styles supplémentaires pour la page d'accueil */
+.hero-content {
+    position: relative;
+    z-index: 3;
 }
 
-/* Styles pour stabiliser les cartes */
-.product-card {
-    transition: none;
-    transform: none;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    border: 1px solid #dee2e6;
+.hero-stats {
+    margin: 2rem 0;
 }
 
-.product-card:hover {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    transform: none;
+.stat-item {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1.5rem;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
 }
 
-.product-image {
-    height: 200px;
-    object-fit: contain;
-    background-color: #f8f9fa;
-    padding: 10px;
+.stat-item:hover {
+    transform: translateY(-5px);
+    background: rgba(255, 255, 255, 0.15);
 }
 
-.product-image-placeholder {
-    height: 200px;
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #dee2e6;
+.stat-item i {
+    color: #a5d6a7;
 }
 
-.nutri-score {
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-weight: bold;
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
     color: white;
+    margin-bottom: 0.5rem;
 }
 
-.nutri-a { background-color: #038141; }
-.nutri-b { background-color: #85BB2F; }
-.nutri-c { background-color: #FECB02; }
-.nutri-d { background-color: #EF8200; }
-.nutri-e { background-color: #E63E11; }
-.nutri-n/a { background-color: #6c757d; }
-
-.controversy-alert {
-    display: inline-block;
-    background-color: #dc3545;
-    color: white;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 0.8em;
-    margin: 2px;
+.stat-label {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.nutriscore-A { background: #038141; color: #fff; padding: 2px 8px; border-radius: 5px; font-weight: bold; }
-.nutriscore-B { background: #85BB2F; color: #fff; padding: 2px 8px; border-radius: 5px; font-weight: bold; }
-.nutriscore-C { background: #FECB02; color: #333; padding: 2px 8px; border-radius: 5px; font-weight: bold; }
-.nutriscore-D { background: #EF8200; color: #fff; padding: 2px 8px; border-radius: 5px; font-weight: bold; }
-.nutriscore-E { background: #E63E11; color: #fff; padding: 2px 8px; border-radius: 5px; font-weight: bold; }
-.nutriscore-N/A { background: #6c757d; color: #fff; padding: 2px 8px; border-radius: 5px; font-weight: bold; }
+.results-header {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
 
-.nova-1 { background: #038141; color: #fff; padding: 2px 8px; border-radius: 5px; font-weight: bold; }
-.nova-2 { background: #85BB2F; color: #fff; padding: 2px 8px; border-radius: 5px; font-weight: bold; }
-.nova-3 { background: #FECB02; color: #333; padding: 2px 8px; border-radius: 5px; font-weight: bold; }
-.nova-4 { background: #E63E11; color: #fff; padding: 2px 8px; border-radius: 5px; font-weight: bold; }
+.product-meta {
+    font-size: 0.9rem;
+}
+
+.meta-item {
+    color: var(--text-light);
+    display: flex;
+    align-items: center;
+}
+
+.empty-state {
+    padding: 3rem;
+}
+
+.empty-state i {
+    opacity: 0.5;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .hero-stats .col-6 {
+        margin-bottom: 1rem;
+    }
+    
+    .stat-item {
+        padding: 1rem;
+    }
+    
+    .stat-number {
+        font-size: 1.2rem;
+    }
+    
+    .results-header .btn-group {
+        margin-top: 1rem;
+    }
+}
 </style>
 {% endblock %}
