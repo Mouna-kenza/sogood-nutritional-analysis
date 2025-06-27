@@ -476,3 +476,6 @@ requirements.txt
 # Data
 *.csv
 *.parquet
+
+!frontend/web_app/multi_model.h5
+!notebooks/fr.openfoodfacts.org.products1.csv
