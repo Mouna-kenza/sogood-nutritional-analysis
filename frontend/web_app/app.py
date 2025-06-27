@@ -1,6 +1,9 @@
 # SoGood Frontend - Mouna
 from flask import Flask, render_template, request, jsonify
+from tensorflow.keras.models import load_model
+import numpy as np
 import json
+import os
 
 app = Flask(__name__)
 
@@ -59,6 +62,37 @@ def product_detail(product_id):
     if not product:
         return "Produit non trouvé", 404
     return render_template('product.html', product=product)
+
+
+
+# ================================================================ PREDICTIONS 
+
+model_path = os.path.join(os.path.dirname(__file__), "multi_model.h5")
+
+model = load_model(model_path)
+
+nutriscore_map = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e'}
+
+@app.route("/predict", methods=["GET", "POST"])
+def predict():
+    if request.method == "POST":
+        try:
+            fields = ['fat_100g', 'sugars_100g', 'salt_100g', 'fiber_100g', 'proteins_100g']
+            values = [float(request.form[f]) for f in fields]
+            X = np.array([values], dtype='float32')
+
+            pred_nutri, pred_nova, pred_add = model.predict(X)
+
+            nutri = nutriscore_map[pred_nutri.argmax()]
+            nova = int(pred_nova.argmax()) + 1
+            add = round(float(pred_add[0][0]))
+
+            return render_template("predict.html", prediction=True, nutri=nutri, nova=nova, add=add)
+        except Exception as e:
+            return f"Erreur : {e}"
+
+    return render_template("predict.html", prediction=False)
+
 
 if __name__ == '__main__':
     app.run(debug=True)

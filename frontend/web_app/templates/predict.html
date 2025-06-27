@@ -1,0 +1,38 @@
+{% extends "base.html" %} {% block title %}SoGood - Prédiction Nutritionnelle{%
+endblock %} {% block content %}
+<div class="container mt-5">
+  <h2 class="mb-4">Analyse Nutritionnelle</h2>
+
+  <form method="POST">
+    <div class="row mb-3">
+      {% for field in ['fat_100g', 'sugars_100g', 'salt_100g', 'fiber_100g',
+      'proteins_100g'] %}
+      <div class="col-md-4">
+        <label for="{{ field }}" class="form-label"
+          >{{ field.replace('_100g', '').capitalize() }} (100g)</label
+        >
+        <input
+          type="number"
+          step="any"
+          class="form-control"
+          name="{{ field }}"
+          id="{{ field }}"
+          required
+        />
+      </div>
+      {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-success">Prédire</button>
+  </form>
+
+  {% if prediction %}
+  <hr />
+  <h4>Résultats :</h4>
+  <p class="nutri-score nutri-{{ nutri }}">{{ nutri.upper() }}</p>
+  <p><strong>NOVA Group:</strong> {{ nova }}</p>
+  <p>
+    <span class="controversy-alert"> Additifs estimés : {{ add }} </span>
+  </p>
+  {% endif %}
+</div>
+{% endblock %}
