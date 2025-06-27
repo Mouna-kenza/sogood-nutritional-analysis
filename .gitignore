@@ -467,3 +467,7 @@ exports/
 !start_frontend.py
 !start.ps1
 !start.sh
+
+# Data
+*.csv
+*.parquet
