@@ -6,7 +6,9 @@ from datetime import datetime
 from tensorflow.keras.models import load_model
 import numpy as np
 import os
-
+import easyocr
+import cv2
+import re
 
 app = Flask(__name__)
 
@@ -289,34 +291,92 @@ def get_stats():
 
 
 
-# # ================================================================ PREDICTIONS 
+# ================================================================ PREDICTIONS 
 
 # model_path = os.path.join(os.path.dirname(__file__), "multi_model.h5")
+model_path = os.path.join(os.path.dirname(__file__), "multi_model.keras")
 
-# model = load_model(model_path)
+model = load_model(model_path)
 
-# nutriscore_map = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e'}
+nutriscore_map = {0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e'}
 
-# @app.route("/predict", methods=["GET", "POST"])
-# def predict():
-#     if request.method == "POST":
-#         try:
-#             fields = ['fat_100g', 'sugars_100g', 'salt_100g', 'fiber_100g', 'proteins_100g']
-#             values = [float(request.form[f]) for f in fields]
-#             X = np.array([values], dtype='float32')
+@app.route("/predict", methods=["GET", "POST"])
+def predict():
+    if request.method == "POST":
+        try:
+            fields = ['fat_100g', 'sugars_100g', 'salt_100g', 'fiber_100g', 'proteins_100g']
+            values = [float(request.form[f]) for f in fields]
+            X = np.array([values], dtype='float32')
 
-#             pred_nutri, pred_nova, pred_add = model.predict(X)
+            pred_nutri, pred_nova, pred_add = model.predict(X)
 
-#             nutri = nutriscore_map[pred_nutri.argmax()]
-#             nova = int(pred_nova.argmax()) + 1
-#             add = round(float(pred_add[0][0]))
+            nutri = nutriscore_map[pred_nutri.argmax()]
+            nova = int(pred_nova.argmax()) + 1
+            add = round(float(pred_add[0][0]))
 
-#             return render_template("predict.html", prediction=True, nutri=nutri, nova=nova, add=add)
-#         except Exception as e:
-#             return f"Erreur : {e}"
+            return render_template("predict.html", prediction=True, nutri=nutri, nova=nova, add=add)
+        except Exception as e:
+            return f"Erreur : {e}"
 
-#     return render_template("predict.html", prediction=False)
+    return render_template("predict.html", prediction=False)
 
 
-# if __name__ == '__main__':
-#     app.run(debug=True, host='0.0.0.0', port=5000)
+
+# ================================================================ PREDICTIONS WITH AN IMAGE
+
+
+reader = easyocr.Reader(['fr', 'en'])
+
+def extract_nutrient(text, keyword):
+    match = re.search(rf'{keyword}.*?([0-9]+(?:[.,][0-9]+)?)\s*g', text)
+    if match:
+        return float(match.group(1).replace(',', '.'))
+    return None
+
+
+
+@app.route("/predict-image", methods=["GET", "POST"])
+def predict_image():
+    if request.method == "POST":
+        file = request.files.get("image")
+        if file:
+            
+            upload_folder = os.path.join("static", "uploads")
+            os.makedirs(upload_folder, exist_ok=True)
+            image_path = os.path.join(upload_folder, file.filename)
+            file.save(image_path)
+            
+
+            # OCR
+            results = reader.readtext(image_path, detail=0)
+            text = " ".join(results).lower()
+
+            fat = extract_nutrient(text, 'fat') or 0.0
+            sugars = extract_nutrient(text, 'sugar') or 0.0
+            salt = extract_nutrient(text, 'salt') or 0.0
+            fiber = extract_nutrient(text, 'fiber') or 0.0
+            proteins = extract_nutrient(text, 'protein') or 0.0
+
+            X = np.array([[fat, sugars, salt, fiber, proteins]], dtype='float32')
+            pred_nutri, pred_nova, pred_add = model.predict(X)
+
+            nutri = nutriscore_map[pred_nutri.argmax()]
+            nova = int(pred_nova.argmax()) + 1
+            add = round(float(pred_add[0][0]))
+
+            return render_template("predict_image.html", 
+                                   prediction=True, 
+                                   nutri=nutri, 
+                                   nova=nova, 
+                                   add=add,
+                                   fat=fat,
+                                   sugars=sugars,
+                                   salt=salt,
+                                   fiber=fiber,
+                                   proteins=proteins,
+                                   image_path=image_path)
+    
+    return render_template("predict_image.html", prediction=False)
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)

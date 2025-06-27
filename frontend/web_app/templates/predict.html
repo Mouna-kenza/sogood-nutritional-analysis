@@ -24,15 +24,38 @@ endblock %} {% block content %}
     </div>
     <button type="submit" class="btn btn-success">Prédire</button>
   </form>
+  <a href="{{ url_for('predict_image') }}">Upload Image for Prediction</a>
 
   {% if prediction %}
   <hr />
   <h4>Résultats :</h4>
+
+  <!-- Nutri-Score -->
   <p class="nutri-score nutri-{{ nutri }}">{{ nutri.upper() }}</p>
-  <p><strong>NOVA Group:</strong> {{ nova }}</p>
   <p>
-    <span class="controversy-alert"> Additifs estimés : {{ add }} </span>
+    <strong>Nutri-Score {{ nutri.upper() }} :</strong>
+    {% if nutri == 'a' %} Excellent qualité nutritionnelle {% elif nutri == 'b'
+    %} Bonne qualité nutritionnelle {% elif nutri == 'c' %} Qualité
+    nutritionnelle moyenne {% elif nutri == 'd' %} Faible qualité nutritionnelle
+    {% elif nutri == 'e' %} Mauvaise qualité nutritionnelle {% endif %}
   </p>
+
+  <!-- NOVA Group -->
+  <p>
+    <strong>NOVA Group: {{ nova }}</strong> — {% if nova == 1 %} Aliments non
+    transformés ou peu transformés {% elif nova == 2 %} Ingrédients culinaires
+    transformés {% elif nova == 3 %} Aliments transformés {% elif nova == 4 %}
+    Produits ultra-transformés {% endif %}
+  </p>
+
+  <!-- Additives -->
+  <p>
+    <strong>Additifs estimés :</strong> {{ add }} {% if add == 0 %} Aucun
+    additif détecté {% elif add <= 2 %} Faible quantité d’additifs {% elif add
+    <= 5 %} Quantité modérée d’additifs {% else %} Présence élevée d’additifs {%
+    endif %}
+  </p>
+
   {% endif %}
 </div>
 {% endblock %}

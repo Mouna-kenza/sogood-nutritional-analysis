@@ -1,0 +1,76 @@
+{% extends "base.html" %} {% block title %}SoGood - Analyse par Image{% endblock
+%} {% block content %}
+<div class="container mt-5">
+  <h2 class="mb-4">Prédiction à partir table de nutritions</h2>
+
+  <form method="POST" enctype="multipart/form-data">
+    <div class="mb-3">
+      <label for="image" class="form-label"
+        >Téléverser une image nutritionnelle</label
+      >
+      <input
+        class="form-control"
+        type="file"
+        id="image"
+        name="image"
+        accept="image/*"
+        required
+      />
+    </div>
+    <button type="submit" class="btn btn-primary">Analyser</button>
+  </form>
+
+  <a class="btn btn-link mt-3" href="{{ url_for('predict') }}"
+    >← Saisie manuelle</a
+  >
+
+  {% if prediction %}
+  <hr />
+  <h4>Résultats :</h4>
+  <img
+    src="{{ url_for('static', filename='uploads/' + image_path.split('/')[-1]) }}"
+    class="img-fluid mb-3"
+    alt="Image analysée"
+  />
+
+  <ul class="list-group">
+    <li class="list-group-item"><strong>Fat:</strong> {{ fat }}g</li>
+    <li class="list-group-item"><strong>Sugars:</strong> {{ sugars }}g</li>
+    <li class="list-group-item"><strong>Salt:</strong> {{ salt }}g</li>
+    <li class="list-group-item"><strong>Fiber:</strong> {{ fiber }}g</li>
+    <li class="list-group-item"><strong>Proteins:</strong> {{ proteins }}g</li>
+  </ul>
+
+  <div class="mt-4">
+    <h4>Résultats :</h4>
+
+    <!-- Nutri-Score -->
+    <p class="nutri-score nutri-{{ nutri }}">{{ nutri.upper() }}</p>
+    <p>
+      <strong>Nutri-Score {{ nutri.upper() }} :</strong>
+      {% if nutri == 'a' %} Excellent qualité nutritionnelle {% elif nutri ==
+      'b' %} Bonne qualité nutritionnelle {% elif nutri == 'c' %} Qualité
+      nutritionnelle moyenne {% elif nutri == 'd' %} Faible qualité
+      nutritionnelle {% elif nutri == 'e' %} Mauvaise qualité nutritionnelle {%
+      endif %}
+    </p>
+
+    <!-- NOVA Group -->
+    <p>
+      <strong>NOVA Group: {{ nova }}</strong> — {% if nova == 1 %} Aliments non
+      transformés ou peu transformés {% elif nova == 2 %} Ingrédients culinaires
+      transformés {% elif nova == 3 %} Aliments transformés {% elif nova == 4 %}
+      Produits ultra-transformés {% endif %}
+    </p>
+
+    <!-- Additives -->
+    <p>
+      <strong>Additifs estimés :</strong> {{ add }} {% if add == 0 %} Aucun
+      additif détecté {% elif add <= 2 %} Faible quantité d’additifs {% elif add
+      <= 5 %} Quantité modérée d’additifs {% else %} Présence élevée d’additifs
+      {% endif %}
+    </p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
