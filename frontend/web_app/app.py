@@ -1,17 +1,12 @@
-# SoGood Frontend - Mouna
-# <<<<<<< HEAD
 from flask import Flask, render_template, request, jsonify, Response
 import json
 import requests
 import pandas as pd
 from datetime import datetime
-# =======
-# # from flask import Flask, render_template, request, jsonify
-# # from tensorflow.keras.models import load_model
-# # import numpy as np
-# # import json
-# # import os
-# # >>>>>>> 389121c (model and predict route)
+from tensorflow.keras.models import load_model
+import numpy as np
+import os
+
 
 app = Flask(__name__)
 
